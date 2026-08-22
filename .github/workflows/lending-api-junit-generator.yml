@@ -26,7 +26,7 @@ permissions:
 
 env:
   REQ_DIR: IntegrationAPITool/artifacts/requirement_doc
-  BASE_BRANCH: master
+  BASE_BRANCH: main
   # How long (seconds) to wait between each poll attempt
   POLL_INTERVAL_SEC: "60"
   # Maximum number of poll attempts before giving up on a file (~60 min per file)
