@@ -25,7 +25,7 @@ permissions:
   pull-requests: write
 
 env:
-  REQ_DIR: FLIQ-liqjava/IntegrationAPITool/artifacts/requirement_doc
+  REQ_DIR: IntegrationAPITool/artifacts/requirement_doc
   BASE_BRANCH: master
   # How long (seconds) to wait between each poll attempt
   POLL_INTERVAL_SEC: "60"
