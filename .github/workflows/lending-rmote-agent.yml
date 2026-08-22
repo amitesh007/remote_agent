@@ -217,16 +217,7 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             
-            # Ensure develop branch exists on remote; create from main if not
-            if git ls-remote --exit-code origin develop > /dev/null 2>&1; then
-              git fetch origin develop
-              git checkout develop
-            else
-              git checkout -b develop
-              git push -u origin develop
-            fi
-            
-            # Create and switch to feature branch
+            # Create and switch to feature branch from main
             if git rev-parse --verify "${FEATURE_BRANCH}" 2>/dev/null; then
               echo "Feature branch ${FEATURE_BRANCH} already exists, using it"
               git checkout "${FEATURE_BRANCH}"
@@ -282,7 +273,7 @@ jobs:
 
               echo "Creating pull request for ${ENTITY_NAME}..."
               gh pr create \
-                --base develop \
+                --base main \
                 --head "${FEATURE_BRANCH}" \
                 --title "feat: Add JUnit integration tests for ${ENTITY_NAME}" \
                 --body-file /tmp/pr_body_rendered.txt \
@@ -291,8 +282,8 @@ jobs:
               echo "No changes to commit for ${ENTITY_NAME}"
             fi
 
-            # Return to develop for next entity
-            git checkout develop
+            # Return to main for next entity
+            git checkout main
 
           done < /tmp/entities_to_process.txt
 
@@ -305,13 +296,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          if git ls-remote --exit-code origin develop > /dev/null 2>&1; then
-            git fetch origin develop
-            git checkout develop
-          else
-            git checkout -b develop
-            git push -u origin develop
-          fi
+          git checkout main
 
           if git diff --quiet && git diff --staged --quiet; then
             echo "No changes to commit"
@@ -321,5 +306,5 @@ jobs:
           git add "${REQ_DIR}"
           git commit -m "refactor: Mark requirement spreadsheets as processed (run ${{ github.run_id }})" --allow-empty
 
-          git push origin HEAD:develop || echo "No changes to push"
+          git push origin HEAD:main || echo "No changes to push"
           echo "Changes pushed successfully"
