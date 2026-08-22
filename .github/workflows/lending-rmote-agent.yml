@@ -8,7 +8,7 @@ permissions:
   pull-requests: write
 
 env:
-  REQ_DIR: FLIQ-liqjava/IntegrationAPITool/artifacts/requirement_doc
+  REQ_DIR: IntegrationAPITool/artifacts/requirement_doc
 
 jobs:
   process-spreadsheets:
