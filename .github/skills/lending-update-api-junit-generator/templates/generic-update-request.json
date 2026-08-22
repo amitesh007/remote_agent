@@ -1,0 +1,129 @@
+{
+  "header": {
+    "appId": "INTR",
+    "isB2B": true,
+    "isAdmin": false
+  },
+  "attributes": {
+    "liqBusinessObjects": {
+      "liqBusinessObject": [
+        {
+          "name": "Update{EntityName}Integration",
+          "className": "Update{EntityName}Integration",
+          "group": [
+            {
+              "name": "heading",
+              "item": [
+                {
+                  "attribute": "version",
+                  "valueType": "String",
+                  "value": "1.0"
+                },
+                {
+                  "attribute": "matchUpdatedTimestamp",
+                  "valueType": "String",
+                  "value": "2024-03-10 10:30:00.0"
+                }
+              ]
+            },
+            {
+              "name": "{identifierFieldName}",
+              "item": [
+                {
+                  "attribute": "identifierType",
+                  "valueType": "String",
+                  "value": "id"
+                },
+                {
+                  "attribute": "identifierValue",
+                  "valueType": "String",
+                  "value": "{ENTITY_ID_VALUE}"
+                }
+              ]
+            },
+            {
+              "name": "primitiveFields",
+              "item": [
+                {
+                  "attribute": "{primitiveField1}",
+                  "valueType": "String",
+                  "value": "{value1}"
+                },
+                {
+                  "attribute": "{primitiveField2}",
+                  "valueType": "BigDecimal",
+                  "value": "1000.00"
+                },
+                {
+                  "attribute": "{dateField}",
+                  "valueType": "Date",
+                  "value": "2024-03-10"
+                },
+                {
+                  "attribute": "{booleanField}",
+                  "valueType": "Boolean",
+                  "value": "true"
+                }
+              ]
+            },
+            {
+              "name": "nonPrimitiveFields",
+              "item": [
+                {
+                  "attribute": "{nonPrimitiveField}",
+                  "valueList": {
+                    "liqBusinessObject": [
+                      {
+                        "group": [
+                          {
+                            "item": [
+                              {
+                                "attribute": "{nestedField1}",
+                                "valueType": "String",
+                                "value": "{nestedValue1}"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            },
+            {
+              "name": "collectionFields",
+              "item": [
+                {
+                  "attribute": "{collectionField}",
+                  "valueList": {
+                    "liqBusinessObject": [
+                      {
+                        "group": [
+                          {
+                            "item": [
+                              {
+                                "attribute": "{collectionItemField1}",
+                                "valueType": "String",
+                                "value": "{collectionItemValue1}"
+                              },
+                              {
+                                "attribute": "{collectionItemField2}",
+                                "valueType": "BigDecimal",
+                                "value": "500.00"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
