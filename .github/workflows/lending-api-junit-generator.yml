@@ -44,7 +44,7 @@ jobs:
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          token: ${{ secrets.GITHUB_TOKEN }}
+          token: ${{ secrets.CODESPACES_PAT }}
 
       # ── 2. Git identity (needed if the runner ever needs to push) ────────────
       - name: Configure git identity
@@ -55,7 +55,7 @@ jobs:
       # ── 3. Labels (idempotent) ───────────────────────────────────────────────
       - name: Ensure required labels exist
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CODESPACES_PAT }}
         run: |
           for LABEL in "junit-generated" "automation"; do
             gh label create "${LABEL}" \
@@ -67,7 +67,7 @@ jobs:
       # ── 4. Main sequential loop ──────────────────────────────────────────────
       - name: Process spreadsheets one at a time
         env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_TOKEN: ${{ secrets.CODESPACES_PAT }}
           GH_RUN_ID: ${{ github.run_id }}
           GH_SERVER_URL: ${{ github.server_url }}
           GH_REPOSITORY: ${{ github.repository }}
