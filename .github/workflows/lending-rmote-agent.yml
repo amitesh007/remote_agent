@@ -53,30 +53,69 @@ jobs:
             const workbook = XLSX.read(buffer, { type: 'buffer' });
             const worksheets = workbook.SheetNames;
 
+            console.log('Processing file: ' + filePath);
             console.log('Worksheets found: ' + worksheets.join(', '));
 
-            const entities = [];
-            for (const sheet of worksheets) {
-              const sheetLower = sheet.toLowerCase();
+            const detected = [];
+
+            for (const sheetName of worksheets) {
+              const sheetLower = sheetName.toLowerCase();
+
+              let sheetType = null;
               if (sheetLower.includes('create')) {
-                const entity = sheet.replace(/create/gi, '').trim();
-                if (entity) entities.push(entity + ' (Create)');
+                sheetType = 'Create';
               } else if (sheetLower.includes('update')) {
-                const entity = sheet.replace(/update/gi, '').trim();
-                if (entity) entities.push(entity + ' (Update)');
+                sheetType = 'Update';
               } else if (sheetLower.includes('getbyid') || sheetLower.includes('get by id')) {
-                const entity = sheet.replace(/getbyid|get by id/gi, '').trim();
-                if (entity) entities.push(entity + ' (GetByID)');
+                sheetType = 'GetByID';
               } else if (sheetLower.includes('delete')) {
-                const entity = sheet.replace(/delete/gi, '').trim();
-                if (entity) entities.push(entity + ' (Delete)');
+                sheetType = 'Delete';
+              } else {
+                // skip sheets that are not one of the target types
+                continue;
+              }
+
+              const sheet = workbook.Sheets[sheetName];
+              const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
+
+              if (!rows || rows.length === 0) {
+                continue;
+              }
+
+              // Determine if first row looks like a header (e.g., "ENTITY_NAME" or "Entity")
+              let startRow = 0;
+              const firstCell = (rows[0] && rows[0][0]) ? String(rows[0][0]).trim().toLowerCase() : '';
+              if (firstCell && (firstCell.includes('entity') || firstCell.includes('name') || firstCell.includes('entity_name') || firstCell.includes('entity name'))) {
+                startRow = 1;
+              }
+
+              const entries = [];
+
+              for (let r = startRow; r < rows.length; r++) {
+                const row = rows[r] || [];
+                const entityName = String(row[0] || '').trim();
+                const entityValue = String(row[1] || '').trim();
+
+                if (entityName) {
+                  entries.push({ name: entityName, value: entityValue });
+                }
+              }
+
+              if (entries.length > 0) {
+                detected.push({ sheet: sheetName, type: sheetType, entries });
               }
             }
 
-            if (entities.length > 0) {
-              console.log('Entities detected: ' + entities.join('; '));
+            if (detected.length > 0) {
+              console.log('Entities detected:');
+              // Print one line per entry including file path, sheet and name=>value
+              for (const block of detected) {
+                for (const e of block.entries) {
+                  console.log(`${filePath} :: ${block.sheet} (Type: ${block.type}) :: ${e.name} => ${e.value}`);
+                }
+              }
             } else {
-              console.log('No entities detected from worksheet names');
+              console.log('No entities detected from worksheet rows');
             }
           } catch (err) {
             console.error('ERROR: Failed to read spreadsheet: ' + err.message);
