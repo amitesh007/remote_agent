@@ -1,0 +1,387 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE UpdateConsolidatedCustomerIntegration SYSTEM "UpdateConsolidatedCustomerIntegration.dtd">
+
+<UpdateConsolidatedCustomerIntegration
+	 version="1.0"
+	 customerInternalId="type=Alphanumeric, size=0-8, reqd=Y"
+	 branch="type=Alphanumeric, codeTable=Branch, reqd=N"
+	 brokerIndicator="type=Boolean, reqd=N"
+	 country="type=Alphanumeric, codeTable=Country, reqd=N"
+	 craIndicator="type=Boolean, reqd=N"
+	 customerDescription="type=Alphanumeric, codeTable=Customer Description, reqd=N"
+	 customerStatus="type=Alphanumeric, codeTable=Customer Status, reqd=N"
+	 department="type=Alphanumeric, codeTable=Department, reqd=N"
+	 departmentSubtypeCode="type=Alphanumeric, codeTable=Department Subtype, reqd=N"
+	 expenseCode="type=Alphanumeric, codeTable=Expense, reqd=N"
+	 externalId="type=Alphanumeric, size=0-15, reqd=N"
+	 fullName="type=Alphanumeric, size=0-140, reqd=N"
+	 generatorIndicator="type=Boolean, reqd=N"
+	 idempotencyKey="type=Alphanumeric, reqd=N"
+	 immediateParent="type=Alphanumeric, size=0-8, reqd=N"
+	 includeInDTCCExtractIndicator="type=Boolean, reqd=N"
+	 language="type=Alphanumeric, codeTable=Language, reqd=N"
+	 legalCode="type=Alphanumeric, codeTable=Legal Code, reqd=N"
+	 majorUnderwriterIndicator="type=Boolean, reqd=N"
+	 masterAccountCode="type=Alphanumeric, codeTable=Customer Master Account, reqd=N"
+	 masterCustNumber="type=Alphanumeric, size=0-10, reqd=N"
+	 noticeTypePreference="type=Alphanumeric, codeTable=Notice Type Preferences, reqd=N"
+	 obligorIndicator="type=Boolean, reqd=N"
+	 portfolioCode="type=Alphanumeric, codeTable=Portfolio, reqd=N"
+	 primarySIC="type=Alphanumeric, codeTable=Standard Industry, reqd=N"
+	 prospectCode="type=Alphanumeric, codeTable=Prospect Type, reqd=N"
+	 restrictedIndicator="type=Boolean, reqd=N"
+	 shortName="type=Alphanumeric, size=0-30, reqd=N"
+	 sicCountryCode="type=Alphanumeric, codeTable=Country, reqd=N"
+	 simplifiedCustomerIndicator="type=Boolean, reqd=N"
+	 slmEligibleIndicator="type=Boolean, reqd=N"
+	 sovereignIndicator="type=Boolean, reqd=N"
+	 specialLoanIndicator="type=Boolean, reqd=N"
+	 thirdPartyRecipientProfileOnlyIndicator="type=Boolean, reqd=N"
+	 treasuryReportingAreaCode="type=Alphanumeric, codeTable=Country, reqd=N"
+	 ultimateParent="type=Alphanumeric, size=0-8, reqd=N">
+	<CCServiceMemberCivilRelief
+		 version="1.0"
+		 militaryServiceMemberIndicator="type=Boolean, reqd=N" isList="false">
+		<CCActiveDutyPeriod
+			 version="1.0"
+			 endDate="type=Date, reqd=N"
+			 startDate="type=Date, reqd=N" isList="true"/>
+	</CCServiceMemberCivilRelief>
+	<CCLegalAddress
+		 version="1.0"
+		 addressLine1="type=Alphanumeric, size=0-36, reqd=N"
+		 addressLine2="type=Alphanumeric, size=0-36, reqd=N"
+		 addressLine3="type=Alphanumeric, size=0-36, reqd=N"
+		 addressLine4="type=Alphanumeric, size=0-36, reqd=N"
+		 addressLine5="type=Alphanumeric, size=0-36, reqd=N"
+		 addressLine6="type=Alphanumeric, size=0-36, reqd=N"
+		 city="type=Alphanumeric, size=0-35, reqd=N"
+		 country="type=Alphanumeric, codeTable=Country, reqd=N"
+		 county="type=Alphanumeric, codeTable=County, reqd=N"
+		 phone="type=Alphanumeric, size=0-40, reqd=N"
+		 province="type=Alphanumeric, codeTable=Province, reqd=N"
+		 stateCode="type=Alphanumeric, size=0-5, reqd=N"
+		 treasuryReportingAreaCode="type=Alphanumeric, codeTable=Country, reqd=N"
+		 zipCode="type=Alphanumeric, size=0-10, reqd=N" isList="false">
+		<CCComment
+			 version="1.0"
+			 comment="type=Alphanumeric, size=0-3499, reqd=N"
+			 deleteIndicator="type=Boolean, reqd=N"
+			 title="type=Alphanumeric, size=0-40, reqd=N" isList="false"/>
+	</CCLegalAddress>
+	<CCAlias
+		 version="1.0"
+		 aliasType="type=Alphanumeric, codeTable=Alias Type, reqd=Y"
+		 aliasOldValue="type=Alphanumeric, size=0-20, reqd=N"
+		 aliasValue="type=Alphanumeric, size=0-20, reqd=N"
+		 deleteIndicator="type=Boolean, reqd=N" isList="true"/>
+	<CCMISCode
+		 version="1.0"
+		 type="type=Alphanumeric, codeTable=MIS Type, reqd=Y"
+		 deleteIndicator="type=Boolean, reqd=N"
+		 value="type=Alphanumeric, size=0-256, reqd=N"
+		 valueType="type=Alphanumeric, size=0-5, reqd=N" isList="true"/>
+	<CCPersonnelAssignment
+		 version="1.0"
+		 userId="type=Alphanumeric, size=6-8, reqd=Y"
+		 accessManagerIndicator="type=Boolean, reqd=N"
+		 dateAssigned="type=Date, reqd=N"
+		 defaultIndicator="type=Boolean, reqd=N"
+		 deleteIndicator="type=Boolean, reqd=N" isList="true">
+		<CCComment
+			 version="1.0"
+			 comment="type=Alphanumeric, size=0-3499, reqd=N"
+			 deleteIndicator="type=Boolean, reqd=N"
+			 title="type=Alphanumeric, size=0-40, reqd=N" isList="false"/>
+	</CCPersonnelAssignment>
+	<CCCustomerComment
+		 version="1.0"
+		 comment="type=Alphanumeric, size=0-3499, reqd=N"
+		 commentRID="type=Alphanumeric, size=0-8, reqd=N"
+		 deleteIndicator="type=Boolean, reqd=N"
+		 title="type=Alphanumeric, size=0-40, reqd=N" isList="true"/>
+	<CCExternalRiskRating
+		 version="1.0"
+		 ratingType="type=Alphanumeric, codeTable=External Rating Type, reqd=Y"
+		 deleteIndicator="type=Boolean, reqd=N"
+		 rating="type=Alphanumeric, size=0-5, reqd=N"
+		 startDate="type=Date, reqd=N" isList="true"/>
+	<CCInternalRiskRating
+		 version="1.0"
+		 ratingType="type=Alphanumeric, codeTable=Risk Rating Type, reqd=Y"
+		 deleteIndicator="type=Boolean, reqd=N"
+		 effectiveDate="type=Date, reqd=N"
+		 expiryDate="type=Date, reqd=N"
+		 percentage="type=Numeric, size=0-15, reqd=N"
+		 ratingCode="type=Alphanumeric, codeTable=Risk Rating Code, reqd=N"
+		 ratingValue="type=Alphanumeric, size=0-20, reqd=N" isList="true"/>
+	<CCBusTerritoryCountry
+		 version="1.0"
+		 countryCode="type=Alphanumeric, codeTable=Country, reqd=Y"
+		 deleteIndicator="type=Boolean, reqd=N"
+		 percentage="type=Numeric, size=0-15, reqd=N" isList="true"/>
+	<CCBusTerritoryState
+		 version="1.0"
+		 stateCode="type=Alphanumeric, codeTable=State, reqd=Y"
+		 deleteIndicator="type=Boolean, reqd=N"
+		 percentage="type=Numeric, size=0-15, reqd=N" isList="true"/>
+	<CCBusTerritoryProvince
+		 version="1.0"
+		 provinceCode="type=Alphanumeric, codeTable=Province, reqd=Y"
+		 deleteIndicator="type=Boolean, reqd=N"
+		 percentage="type=Numeric, size=0-15, reqd=N" isList="true"/>
+	<CCBusTerritoryRegion
+		 version="1.0"
+		 regionCode="type=Alphanumeric, codeTable=Region, reqd=Y"
+		 deleteIndicator="type=Boolean, reqd=N"
+		 percentage="type=Numeric, size=0-15, reqd=N" isList="true"/>
+	<CCAdditionalField
+		 version="1.0"
+		 fieldId="type=Alphanumeric, reqd=N"
+		 fieldType="type=Alphanumeric, reqd=N"
+		 fieldValue="type=Alphanumeric, reqd=N" isList="true"/>
+	<CCCountry
+		 version="1.0"
+		 countryCode="type=Alphanumeric, codeTable=Country, reqd=Y"
+		 countryRiskCode="type=Alphanumeric, codeTable=Risk Rating Code, reqd=N"
+		 countryRiskEffectiveDate="type=Date, reqd=N"
+		 deleteIndicator="type=Boolean, reqd=N"
+		 fullname="type=Alphanumeric, size=0-140, reqd=N"
+		 immediateParent="type=Alphanumeric, size=0-8, reqd=N"
+		 masterCustNumber="type=Alphanumeric, size=0-10, reqd=N"
+		 primarySIC="type=Alphanumeric, codeTable=Standard Industry, reqd=N" isList="true"/>
+	<CCSecondarySIC
+		 version="1.0"
+		 sicCode="type=Alphanumeric, codeTable=Standard Industry, reqd=Y"
+		 sicCountryCode="type=Alphanumeric, codeTable=Country, reqd=Y"
+		 deleteIndicator="type=Boolean, reqd=N" isList="true"/>
+	<CCContact
+		 version="1.0"
+		 contactRef="type=Alphanumeric, size=0-20, reqd=N"
+		 defaultIndicator="type=Boolean, reqd=N"
+		 deleteIndicator="type=Boolean, reqd=N"
+		 department="type=Alphanumeric, size=0-20, reqd=N"
+		 exprAddressId="type=Alphanumeric, size=0-8, reqd=N"
+		 exprAddressRef="type=Alphanumeric, size=0-20, reqd=N"
+		 exprSuite="type=Alphanumeric, size=0-25, reqd=N"
+		 fees="type=Boolean, reqd=N"
+		 homeFax="type=Alphanumeric, size=0-40, reqd=N"
+		 homePhone="type=Alphanumeric, size=0-40, reqd=N"
+		 id="type=Alphanumeric, size=0-8, reqd=N"
+		 inactiveIndicator="type=Boolean, reqd=N"
+		 interest="type=Boolean, reqd=N"
+		 jobFunction="type=Alphanumeric, size=0-30, reqd=N"
+		 languageCode="type=Alphanumeric, codeTable=Language, reqd=N"
+		 loan="type=Boolean, reqd=N"
+		 locationId="type=Alphanumeric, size=0-8, reqd=N"
+		 mailingAddressId="type=Alphanumeric, size=0-8, reqd=N"
+		 mailingAddressRef="type=Alphanumeric, size=0-20, reqd=N"
+		 mailingAddressSuite="type=Alphanumeric, size=0-25, reqd=N"
+		 nameFirst="type=Alphanumeric, size=0-20, reqd=N"
+		 nameLast="type=Alphanumeric, size=0-35, reqd=N"
+		 nameMiddle="type=Alphanumeric, size=0-20, reqd=N"
+		 namePreferred="type=Alphanumeric, size=0-20, reqd=N"
+		 namePrefix="type=Alphanumeric, size=0-10, reqd=N"
+		 primaryPhone="type=Alphanumeric, size=0-40, reqd=N"
+		 primaryPurposeCode="type=Alphanumeric, codeTable=Contact Purpose, reqd=N"
+		 principal="type=Boolean, reqd=N"
+		 salutation="type=Alphanumeric, size=0-20, reqd=N"
+		 sblc="type=Boolean, reqd=N"
+		 secondaryPhone="type=Alphanumeric, size=0-20, reqd=N"
+		 title="type=Alphanumeric, size=0-30, reqd=N" isList="true">
+		<CCComment
+			 version="1.0"
+			 comment="type=Alphanumeric, size=0-3499, reqd=N"
+			 deleteIndicator="type=Boolean, reqd=N"
+			 title="type=Alphanumeric, size=0-40, reqd=N" isList="false"/>
+		<CCCurrency
+			 version="1.0"
+			 currencyCode="type=Alphanumeric, codeTable=Currency, reqd=Y"
+			 deleteIndicator="type=Boolean, reqd=N" isList="true"/>
+		<CCNoticeMethod
+			 version="1.0"
+			 noticeMethodCode="type=Alphanumeric, codeTable=Generic Notice Method, reqd=Y"
+			 deleteIndicator="type=Boolean, reqd=N"
+			 emailAddress="type=Alphanumeric, size=0-256, reqd=N"
+			 preferredIndicator="type=Boolean, reqd=N"
+			 primaryFaxId="type=Alphanumeric, size=0-8, reqd=N"
+			 primaryFaxRef="type=Alphanumeric, size=0-20, reqd=N"
+			 secondaryFaxId="type=Alphanumeric, size=0-8, reqd=N"
+			 secondaryFaxRef="type=Alphanumeric, size=0-20, reqd=N"
+			 swiftID="type=Alphanumeric, size=0-8, reqd=N"
+			 telexNumber="type=Alphanumeric, size=0-30, reqd=N" isList="true"/>
+		<CCSecondaryPurpose
+			 version="1.0"
+			 purposeCode="type=Alphanumeric, codeTable=Contact Purpose, reqd=Y"
+			 deleteIndicator="type=Boolean, reqd=N"
+			 primaryIndicator="type=Boolean, reqd=N" isList="true"/>
+	</CCContact>
+	<CCProfile
+		 version="1.0"
+		 profileType="type=Alphanumeric, codeTable=Profile Type, reqd=Y"
+		 breakfundingAgreementIndicator="type=Boolean, reqd=N"
+		 breakfundingAgreementText="type=Alphanumeric, reqd=N"
+		 countryOfTaxFormSubmission="type=Alphanumeric, codeTable=Country, reqd=N"
+		 creditorIndicator="type=Boolean, reqd=N"
+		 creditReviewDate="type=Date, reqd=N"
+		 deleteIndicator="type=Boolean, reqd=N"
+		 escrowDataExtractionIndicator="type=Boolean, reqd=N"
+		 fiscalTransferAgentIndicator="type=Boolean, reqd=N"
+		 payeeType="type=Alphanumeric, codeTable=Payee Type, reqd=N"
+		 portfolioAction="type=Alphanumeric, codeTable=Portfolio Action, reqd=N"
+		 portfolioNextReviewDate="type=Date, reqd=N"
+		 sgrReferenceId="type=Alphanumeric, size=0-100, reqd=N"
+		 subjectToBackupWithholding="type=Boolean, reqd=N"
+		 subsidyAgencyIndicator="type=Boolean, reqd=N"
+		 suppressExternalBorrNoticesIndicator="type=Boolean, reqd=N"
+		 taxCustomerType="type=Alphanumeric, codeTable=Tax Customer Type, reqd=N"
+		 taxExemptCode="type=Alphanumeric, codeTable=Tax Exempt, reqd=N"
+		 taxExemptionForm="type=Alphanumeric, codeTable=Tax Exemption Form, reqd=N"
+		 taxExpirationDate="type=Date, reqd=N"
+		 taxpayerId="type=Alphanumeric, size=0-25, reqd=N"
+		 unfundedRiskAmount="type=Numeric, size=0-28, reqd=N"
+		 unfundedRiskCurrency="type=Alphanumeric, codeTable=Currency, reqd=N"
+		 unfundedRiskExpDate="type=Date, reqd=N"
+		 unfundedRiskFrequency="type=Integer, reqd=N"
+		 unfundedRiskIndicator="type=Boolean, reqd=N"
+		 unfundedRiskLastApprDate="type=Date, reqd=N"
+		 unfundedRiskUsedAmount="type=Numeric, size=0-28, reqd=N"
+		 watchfulAccountIndicator="type=Boolean, reqd=N" isList="true">
+		<CCCreditReviewComment
+			 version="1.0"
+			 comment="type=Alphanumeric, size=0-3499, reqd=N"
+			 deleteIndicator="type=Boolean, reqd=N"
+			 title="type=Alphanumeric, size=0-40, reqd=N" isList="true"/>
+		<CCPortfolioManagementComment
+			 version="1.0"
+			 comment="type=Alphanumeric, size=0-3499, reqd=N"
+			 deleteIndicator="type=Boolean, reqd=N"
+			 title="type=Alphanumeric, size=0-40, reqd=N" isList="true"/>
+		<CCProfileComment
+			 version="1.0"
+			 comment="type=Alphanumeric, size=0-3499, reqd=N"
+			 deleteIndicator="type=Boolean, reqd=N"
+			 title="type=Alphanumeric, size=0-40, reqd=N" isList="true"/>
+		<CCFATCADetails
+			 version="1.0"
+			 blendRate="type=Numeric, size=0-15, reqd=N"
+			 fatcaStatus="type=Alphanumeric, size=0-5, reqd=N"
+			 giinEffectiveDate="type=Date, reqd=N"
+			 giinValue="type=Alphanumeric, size=0-19, reqd=N"
+			 gracePeriodEffectiveDate="type=Date, reqd=N"
+			 gracePeriodEndDate="type=Date, reqd=N"
+			 gracePeriodEndDateThruIndicator="type=Boolean, reqd=N"
+			 sourceCountry="type=Alphanumeric, codeTable=Country, reqd=N" isList="false"/>
+		<CCLocation
+			 version="1.0"
+			 locationCode="type=Alphanumeric, codeTable=Location, reqd=Y"
+			 affiliateLenderIndicator="type=Boolean, reqd=N"
+			 breakfundingAgreementIndicator="type=Boolean, reqd=N"
+			 breakfundingAgreementText="type=Alphanumeric, reqd=N"
+			 collateralCategory="type=Alphanumeric, codeTable=Collateral Category, size=0-5, reqd=N"
+			 completedIndicator="type=Boolean, reqd=N"
+			 contactId="type=Alphanumeric, size=0-8, reqd=N"
+			 contactRef="type=Alphanumeric, size=0-20, reqd=N"
+			 deleteIndicator="type=Boolean, reqd=N"
+			 externalId="type=Alphanumeric, size=0-15, reqd=N"
+			 fpmlEnabledIndicator="type=Boolean, reqd=N"
+			 includeInDTCCExtractIndicator="type=Boolean, reqd=N"
+			 lenderRSSDId="type=Alphanumeric, size=0-15, reqd=N"
+			 meiNumber="type=Alphanumeric, size=0-20, reqd=N"
+			 preferredLanguage="type=Alphanumeric, codeTable=Language, reqd=N"
+			 qualifiedBuyerIndicator="type=Boolean, reqd=N"
+			 slmEligibleIndicator="type=Boolean, reqd=N"
+			 subjectToVATIndicator="type=Boolean, reqd=N"
+			 taxExemptCode="type=Alphanumeric, codeTable=Tax Exempt, reqd=N"
+			 taxpayerId="type=Alphanumeric, size=0-25, reqd=N"
+			 unfundedRiskAmount="type=Numeric, size=0-28, reqd=N"
+			 unfundedRiskCurrency="type=Alphanumeric, codeTable=Currency, reqd=N"
+			 unfundedRiskExpDate="type=Date, reqd=N"
+			 unfundedRiskFrequency="type=Integer, reqd=N"
+			 unfundedRiskIndicator="type=Boolean, reqd=N"
+			 unfundedRiskLastApprDate="type=Date, reqd=N"
+			 unfundedRiskUsedAmount="type=Numeric, size=0-28, reqd=N"
+			 vatNumber="type=Alphanumeric, size=0-15, reqd=N"
+			 watchfulAccountIndicator="type=Boolean, reqd=N" isList="true">
+			<CCFATCADetails
+				 version="1.0"
+				 blendRate="type=Numeric, size=0-15, reqd=N"
+				 fatcaStatus="type=Alphanumeric, size=0-5, reqd=N"
+				 giinEffectiveDate="type=Date, reqd=N"
+				 giinValue="type=Alphanumeric, size=0-19, reqd=N"
+				 gracePeriodEffectiveDate="type=Date, reqd=N"
+				 gracePeriodEndDate="type=Date, reqd=N"
+				 gracePeriodEndDateThruIndicator="type=Boolean, reqd=N"
+				 sourceCountry="type=Alphanumeric, codeTable=Country, reqd=N" isList="false"/>
+			<CCLocationComment
+				 version="1.0"
+				 comment="type=Alphanumeric, size=0-3499, reqd=N"
+				 deleteIndicator="type=Boolean, reqd=N"
+				 title="type=Alphanumeric, size=0-40, reqd=N" isList="true"/>
+			<CCAddress
+				 version="1.0"
+				 addressCode="type=Alphanumeric, size=0-20, reqd=Y"
+				 addressLine1="type=Alphanumeric, size=0-36, reqd=N"
+				 addressLine2="type=Alphanumeric, size=0-36, reqd=N"
+				 addressLine3="type=Alphanumeric, size=0-36, reqd=N"
+				 addressLine4="type=Alphanumeric, size=0-36, reqd=N"
+				 addressLine5="type=Alphanumeric, size=0-36, reqd=N"
+				 addressLine6="type=Alphanumeric, size=0-36, reqd=N"
+				 city="type=Alphanumeric, size=0-35, reqd=N"
+				 country="type=Alphanumeric, codeTable=Country, reqd=N"
+				 county="type=Alphanumeric, codeTable=County, reqd=N"
+				 deleteIndicator="type=Boolean, reqd=N"
+				 phone="type=Alphanumeric, size=0-40, reqd=N"
+				 primaryIndicator="type=Boolean, reqd=N"
+				 province="type=Alphanumeric, codeTable=Province, reqd=N"
+				 stateCode="type=Alphanumeric, size=0-5, reqd=N"
+				 zipCode="type=Alphanumeric, size=0-10, reqd=N" isList="true">
+				<CCComment
+					 version="1.0"
+					 comment="type=Alphanumeric, size=0-3499, reqd=N"
+					 deleteIndicator="type=Boolean, reqd=N"
+					 title="type=Alphanumeric, size=0-40, reqd=N" isList="false"/>
+			</CCAddress>
+			<CCFax
+				 version="1.0"
+				 faxNumber="type=Alphanumeric, size=0-40, reqd=Y"
+				 countryCode="type=Alphanumeric, codeTable=Country, reqd=N"
+				 deleteIndicator="type=Boolean, reqd=N"
+				 faxDescription="type=Alphanumeric, size=0-20, reqd=N"
+				 faxRef="type=Alphanumeric, size=0-20, reqd=N" isList="true">
+				<CCComment
+					 version="1.0"
+					 comment="type=Alphanumeric, size=0-3499, reqd=N"
+					 deleteIndicator="type=Boolean, reqd=N"
+					 title="type=Alphanumeric, size=0-40, reqd=N" isList="false"/>
+			</CCFax>
+			<CCPersonnelAssignmentRef
+				 version="1.0"
+				 personnelUserId="type=Alphanumeric, size=6-8, reqd=Y"
+				 deleteIndicator="type=Boolean, reqd=N" isList="true"/>
+			<CCRemittanceInstructionRef
+				 version="1.0"
+				 remittanceInstructionId="type=Alphanumeric, size=0-8, reqd=Y"
+				 deleteIndicator="type=Boolean, reqd=N" isList="false"/>
+			<CCServicingGroup
+				 version="1.0"
+				 alias="type=Alphanumeric, size=0-30, reqd=Y"
+				 deleteIndicator="type=Boolean, reqd=N"
+				 inactiveIndicator="type=Boolean, reqd=N"
+				 markSGStandardIndicator="type=Boolean, reqd=N"
+				 name="type=Alphanumeric, size=0-100, reqd=N" isList="true">
+				<CCSGContactAssoc
+					 version="1.0"
+					 contactId="type=Alphanumeric, size=0-8, reqd=N"
+					 contactPrimaryIndicator="type=Boolean, reqd=N"
+					 contactRef="type=Alphanumeric, size=0-20, reqd=N"
+					 deleteIndicator="type=Boolean, reqd=N" isList="true"/>
+				<CCSGRemittanceInstructionAssoc
+					 version="1.0"
+					 remittanceInstructionId="type=Alphanumeric, size=0-8, reqd=Y"
+					 deleteIndicator="type=Boolean, reqd=N"
+					 markRIStandardIndicator="type=Boolean, reqd=N" isList="true"/>
+			</CCServicingGroup>
+		</CCLocation>
+	</CCProfile>
+</UpdateConsolidatedCustomerIntegration>

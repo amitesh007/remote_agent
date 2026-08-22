@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE QueryConsolidatedCustomerIntegration SYSTEM "QueryConsolidatedCustomerIntegration.dtd">
+
+<QueryConsolidatedCustomerIntegration
+	 version="1.0"
+	 actionId="type=Alphanumeric, reqd=Y"
+	 externalId="type=Alphanumeric, size=0-15, reqd=N"
+	 customerInternalId="type=Alphanumeric, size=0-8, reqd=N"
+	 objectId="type=Alphanumeric, size=0-24, reqd=N"
+	 fullName="type=Alphanumeric, size=0-140, reqd=N"
+	 shortName="type=Alphanumeric, size=0-30, reqd=N"
+	 limit="type=Integer,  reqd=N"
+	 offset="type=Integer,  reqd=N"/>

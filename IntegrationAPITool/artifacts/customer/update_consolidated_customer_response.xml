@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE UpdateConsolidatedCustomerIntegrationResponse SYSTEM "UpdateConsolidatedCustomerIntegrationResponse.dtd">
+
+<UpdateConsolidatedCustomerIntegrationResponse
+	 version="1.0"
+	 customerInternalId="type=Alphanumeric, size=0-8, reqd=N"
+	 objectId="type=Alphanumeric, size=0-24, reqd=N"
+	 externalId="type=Alphanumeric, size=0-15, reqd=N"
+	 fullName="type=Alphanumeric, size=0-140, reqd=N"
+	 shortName="type=Alphanumeric, size=0-30, reqd=N"
+	 updateTimeStamp="type=Timestamp, size=0-30, reqd=N"/>
