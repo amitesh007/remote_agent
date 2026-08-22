@@ -1,0 +1,166 @@
+name: Process Requirement Spreadsheets
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+
+env:
+  REQ_DIR: FLIQ-liqjava/IntegrationAPITool/artifacts/requirement_doc
+
+jobs:
+  process-spreadsheets:
+    name: Process and rename requirement spreadsheets
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install dependencies
+        run: npm install xlsx
+
+      - name: Write processor script
+        run: |
+          cat > process_spreadsheet.mjs << 'SCRIPT_EOF'
+          import { readFile } from 'fs/promises';
+          import { existsSync } from 'fs';
+          import XLSX from 'xlsx';
+
+          const filePath = process.argv[2];
+
+          if (!filePath) {
+            console.error('ERROR: No file path provided');
+            process.exit(1);
+          }
+
+          if (!existsSync(filePath)) {
+            console.error('ERROR: File not found: ' + filePath);
+            process.exit(1);
+          }
+
+          try {
+            const buffer = await readFile(filePath);
+            const workbook = XLSX.read(buffer, { type: 'buffer' });
+            const worksheets = workbook.SheetNames;
+
+            console.log('Worksheets found: ' + worksheets.join(', '));
+
+            const entities = [];
+            for (const sheet of worksheets) {
+              const sheetLower = sheet.toLowerCase();
+              if (sheetLower.includes('create')) {
+                const entity = sheet.replace(/create/gi, '').trim();
+                if (entity) entities.push(entity + ' (Create)');
+              } else if (sheetLower.includes('update')) {
+                const entity = sheet.replace(/update/gi, '').trim();
+                if (entity) entities.push(entity + ' (Update)');
+              } else if (sheetLower.includes('getbyid') || sheetLower.includes('get by id')) {
+                const entity = sheet.replace(/getbyid|get by id/gi, '').trim();
+                if (entity) entities.push(entity + ' (GetByID)');
+              } else if (sheetLower.includes('delete')) {
+                const entity = sheet.replace(/delete/gi, '').trim();
+                if (entity) entities.push(entity + ' (Delete)');
+              }
+            }
+
+            if (entities.length > 0) {
+              console.log('Entities detected: ' + entities.join('; '));
+            } else {
+              console.log('No entities detected from worksheet names');
+            }
+          } catch (err) {
+            console.error('ERROR: Failed to read spreadsheet: ' + err.message);
+            process.exit(1);
+          }
+          SCRIPT_EOF
+
+      - name: Discover and process unprocessed spreadsheets
+        run: |
+          set -e
+
+          if [ ! -d "${REQ_DIR}" ]; then
+            echo "Requirements folder not found: ${REQ_DIR}"
+            exit 0
+          fi
+
+          mapfile -t FILES < <(find "${REQ_DIR}" \
+            -maxdepth 1 \
+            -type f \
+            -name "*.xlsx" \
+            ! -name "done_*" \
+            ! -name "done-*" \
+            | sort)
+
+          if [ ${#FILES[@]} -eq 0 ]; then
+            echo "No unprocessed spreadsheets found — all files already have done_ prefix."
+            exit 0
+          fi
+
+          echo "Found ${#FILES[@]} unprocessed spreadsheet(s):"
+          printf '  %s\n' "${FILES[@]}"
+
+          PROCESSED_COUNT=0
+          FAILED_COUNT=0
+
+          for FILE_PATH in "${FILES[@]}"; do
+            FILENAME=$(basename "${FILE_PATH}")
+
+            echo ""
+            echo "Processing: ${FILENAME}"
+
+            ENTITY_NAMES=$(node process_spreadsheet.mjs "${FILE_PATH}" 2>&1)
+            NODE_EXIT_CODE=$?
+
+            if [ $NODE_EXIT_CODE -ne 0 ]; then
+              echo "Failed to extract entities from ${FILENAME}"
+              echo "${ENTITY_NAMES}"
+              FAILED_COUNT=$((FAILED_COUNT + 1))
+              continue
+            fi
+
+            echo "  File: ${FILENAME}"
+            echo "  ${ENTITY_NAMES}"
+
+            NEW_FILENAME="done_${FILENAME}"
+            NEW_FILE_PATH="${REQ_DIR}/${NEW_FILENAME}"
+
+            if [ -f "${NEW_FILE_PATH}" ]; then
+              echo "  File already renamed: ${NEW_FILENAME}"
+            else
+              mv "${FILE_PATH}" "${NEW_FILE_PATH}"
+              echo "  Renamed to: ${NEW_FILENAME}"
+            fi
+
+            PROCESSED_COUNT=$((PROCESSED_COUNT + 1))
+          done
+
+          echo ""
+          echo "PROCESSING SUMMARY"
+          echo "  Total processed : ${PROCESSED_COUNT}"
+          echo "  Failed          : ${FAILED_COUNT}"
+
+      - name: Commit and push changes
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          if git diff --quiet && git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+
+          git add "${REQ_DIR}"
+          git commit -m "refactor: Mark requirement spreadsheets as processed (run ${{ github.run_id }})"
+
+          git push origin HEAD:${{ github.ref_name }}
+          echo "Changes pushed successfully"
