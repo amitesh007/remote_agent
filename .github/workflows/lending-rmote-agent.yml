@@ -217,9 +217,14 @@ jobs:
             git config user.name "github-actions[bot]"
             git config user.email "github-actions[bot]@users.noreply.github.com"
             
-            # Ensure we're on develop branch
-            git fetch origin develop
-            git checkout develop
+            # Ensure develop branch exists on remote; create from main if not
+            if git ls-remote --exit-code origin develop > /dev/null 2>&1; then
+              git fetch origin develop
+              git checkout develop
+            else
+              git checkout -b develop
+              git push -u origin develop
+            fi
             
             # Create and switch to feature branch
             if git rev-parse --verify "${FEATURE_BRANCH}" 2>/dev/null; then
@@ -300,7 +305,13 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git checkout develop 2>/dev/null || true
+          if git ls-remote --exit-code origin develop > /dev/null 2>&1; then
+            git fetch origin develop
+            git checkout develop
+          else
+            git checkout -b develop
+            git push -u origin develop
+          fi
 
           if git diff --quiet && git diff --staged --quiet; then
             echo "No changes to commit"
