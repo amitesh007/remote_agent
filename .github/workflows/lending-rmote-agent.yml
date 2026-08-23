@@ -306,24 +306,27 @@ jobs:
 
             # Create the GitHub issue. The issue body references the custom agent
             # and contains the entity value + spreadsheet path.
-            # Assigning to 'copilot' requires a user PAT — GITHUB_TOKEN (an app
-            # installation token) is rejected for this operation.
-            # Store a personal access token in the repository secret COPILOT_PAT.
-            # If COPILOT_PAT is not set the issue is created without the assignee
-            # and a warning is printed.
-            if [ -n "${{ secrets.COPILOT_PAT }}" ]; then
-              ISSUE_URL=$(GH_TOKEN="${{ secrets.COPILOT_PAT }}" gh issue create \
-                --repo "${GITHUB_REPOSITORY}" \
-                --title "Generate JUnit tests: ${FILENAME%.xlsx}" \
-                --body-file "${ISSUE_FILE}" \
-                --assignee "copilot")
-            else
-              echo "  WARNING: COPILOT_PAT secret not set — creating issue without copilot assignee."
-              ISSUE_URL=$(gh issue create \
-                --repo "${GITHUB_REPOSITORY}" \
-                --title "Generate JUnit tests: ${FILENAME%.xlsx}" \
-                --body-file "${ISSUE_FILE}")
+            #
+            # IMPORTANT: Assigning an issue to 'copilot' requires a personal access
+            # token (PAT) with repo scope. The built-in GITHUB_TOKEN (an app
+            # installation token) is rejected by GitHub for this operation.
+            #
+            # Store your PAT in the repository secret COPILOT_PAT.
+            # Without this secret the Copilot agent will NOT be triggered and the
+            # workflow will stall waiting for a done_ rename that never comes.
+            # We therefore fail fast here rather than creating a useless issue.
+            if [ -z "${{ secrets.COPILOT_PAT }}" ]; then
+              echo "::error::COPILOT_PAT secret is not set. The Copilot coding agent"
+              echo "::error::cannot be assigned to an issue without a personal access token."
+              echo "::error::Add a PAT with 'repo' scope as the COPILOT_PAT repository secret and re-run."
+              exit 1
             fi
+
+            ISSUE_URL=$(GH_TOKEN="${{ secrets.COPILOT_PAT }}" gh issue create \
+              --repo "${GITHUB_REPOSITORY}" \
+              --title "Generate JUnit tests: ${FILENAME%.xlsx}" \
+              --body-file "${ISSUE_FILE}" \
+              --assignee "copilot")
             ISSUE_NUMBER="${ISSUE_URL##*/}"
 
             echo "  Created issue #${ISSUE_NUMBER} — assigned to GitHub Copilot"
