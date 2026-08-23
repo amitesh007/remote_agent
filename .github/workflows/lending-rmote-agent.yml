@@ -59,9 +59,12 @@ jobs:
 
       # ── STEPS 1-3 ────────────────────────────────────────────────────────────
       # Scan REQ_DIR for .xlsx files that do NOT carry a 'done_' prefix.
-      # For every qualifying file, read ENTITY_NAME (Column A) and its
-      # corresponding value (Column B) from each sheet row.
-      # Results are written to /tmp/entities.json for downstream steps.
+      # For each qualifying file, read ONLY the Create / Update / GetByID / Delete
+      # worksheets (any others are silently skipped).
+      # From each target sheet, read ENTITY_NAME (Column A) and the corresponding
+      # value (Column B) from the first non-blank data row.
+      # Results are written to /tmp/entities.json as an array of objects:
+      #   { filePath, sheetType, entityName, entityValue }
       # ─────────────────────────────────────────────────────────────────────────
       - name: Read Excel files and extract entities
         run: |
@@ -71,6 +74,15 @@ jobs:
           import XLSX from 'xlsx';
 
           const reqDir = process.env.REQ_DIR;
+
+          // Only these four worksheet types are processed; all others are ignored.
+          // Keys are lowercase match patterns; values are the canonical sheet type names.
+          const SHEET_TYPE_MAP = {
+            'create':  'Create',
+            'update':  'Update',
+            'getbyid': 'GetByID',
+            'delete':  'Delete',
+          };
 
           // STEP 1: List all .xlsx files in the requirement_doc directory.
           // STEP 2: Exclude any file already prefixed with 'done_'.
@@ -89,34 +101,66 @@ jobs:
 
           const results = [];
 
-          // STEP 3: For each file, read every row and extract
-          //         ENTITY_NAME (Column A) and its value (Column B).
+          // STEP 3: For each file, iterate over sheets and process only the four
+          //         target sheet types. From each qualifying sheet, read the first
+          //         non-blank row: Column A = ENTITY_NAME, Column B = its value.
           for (const filePath of files) {
             const workbook = XLSX.read(readFileSync(filePath), { type: 'buffer' });
+            console.log(`\nFile: ${basename(filePath)}`);
 
             for (const sheetName of workbook.SheetNames) {
-              // Parse as raw row arrays so column indices are explicit
+              // Resolve the sheet name to one of the four target types.
+              // Normalise by stripping whitespace and lowercasing before matching.
+              const sheetKey = sheetName.trim().toLowerCase().replace(/\s+/g, '');
+              const sheetType = SHEET_TYPE_MAP[sheetKey];
+
+              if (!sheetType) {
+                // Sheet is not Create / Update / GetByID / Delete — skip silently.
+                console.log(`  Skipping sheet '${sheetName}' (not a target sheet)`);
+                continue;
+              }
+
+              // Parse sheet as raw row arrays so column indices are explicit.
               const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
                 header: 1,
                 defval: '',
               });
 
+              // Find the first row that has a non-blank value in Column A.
+              // Skip header-like rows where Column A is a descriptive label
+              // (e.g. 'entity_name', 'entity name', 'attribute', 'field').
+              const HEADER_LABELS = new Set(['entity_name', 'entity name', 'attribute', 'field', 'name', 'key']);
+              let entityName  = '';
+              let entityValue = '';
+
               for (const row of rows) {
-                const entityName  = String(row[0] ?? '').trim(); // Column A — ENTITY_NAME
-                const entityValue = String(row[1] ?? '').trim(); // Column B — corresponding value
+                const colA = String(row[0] ?? '').trim();
+                const colB = String(row[1] ?? '').trim();
 
-                // Skip blank rows
-                if (!entityName) continue;
+                if (!colA) continue; // skip blank rows
 
-                results.push({ filePath, entityName, entityValue });
-                console.log(`  -> ${entityName} : ${entityValue}  [${basename(filePath)}]`);
+                if (HEADER_LABELS.has(colA.toLowerCase())) continue; // skip header rows
+
+                // First qualifying data row — Column A is ENTITY_NAME, Column B is its value.
+                entityName  = colA;
+                entityValue = colB;
+                break;
               }
+
+              if (!entityName) {
+                console.log(`  WARNING: No data row found in sheet '${sheetName}' of ${basename(filePath)} — skipping`);
+                continue;
+              }
+
+              // Store one record per sheet so each can be sent to the agent separately.
+              results.push({ filePath, sheetType, entityName, entityValue });
+              console.log(`  Sheet: ${sheetType.padEnd(8)} | ENTITY_NAME: ${entityName} | Value: ${entityValue}`);
             }
           }
 
-          // Persist extracted data so later steps can consume it
+          // Persist the extracted sheet-level records for downstream steps.
           writeFileSync('/tmp/entities.json', JSON.stringify(results, null, 2));
-          console.log(`\nTotal entities extracted: ${results.length}`);
+          console.log(`\nTotal sheet entries extracted: ${results.length}`);
           SCRIPT_EOF
 
           node extract_entities.mjs
@@ -146,13 +190,12 @@ jobs:
           fi
 
       # ── STEPS 5-7 ────────────────────────────────────────────────────────────
-      # For each entity extracted above:
-      #   STEP 5 — Build the agent invocation prompt and log it to the
-      #            GitHub Actions step summary (visible in the run UI).
-      #            The lending-api-junit-generator agent reads this prompt
-      #            to generate the JUnit classes on the develop/junits_<timestamp> branch.
-      #   STEP 6 — After all entities from a given file are sent to the agent,
-      #            rename that Excel file with the 'done_' prefix.
+      # For each sheet entry extracted above:
+      #   STEP 5 — Build one agent prompt per sheet (Create / Update / GetByID /
+      #            Delete) containing the ENTITY_NAME, its value, the sheet type,
+      #            and the Excel file path. Log the prompt to the step summary.
+      #   STEP 6 — Once ALL sheets for a given Excel file have been sent to the
+      #            agent, rename that file with the 'done_' prefix.
       #   STEP 7 — Move to the next Excel file and repeat until all are done.
       # ─────────────────────────────────────────────────────────────────────────
       - name: Invoke agent per entity and rename processed Excel files
@@ -168,8 +211,8 @@ jobs:
             process.exit(0);
           }
 
-          // Group entities by source file so each file is renamed exactly once,
-          // only after all its entities have been sent to the agent.
+          // Group sheet entries by source Excel file so each file is renamed
+          // exactly once — only after every one of its sheets has been sent to the agent.
           const byFile = {};
           for (const entry of entities) {
             (byFile[entry.filePath] ??= []).push(entry);
@@ -179,30 +222,37 @@ jobs:
           const summaryPath = process.env.GITHUB_STEP_SUMMARY;
 
           // STEP 7: Iterate over each unprocessed Excel file
-          for (const [filePath, entityList] of Object.entries(byFile)) {
+          for (const [filePath, sheetEntries] of Object.entries(byFile)) {
             console.log(`\nProcessing file: ${basename(filePath)}`);
 
-            // STEP 5: For each entity in this file, build and log the agent prompt.
-            // The prompt includes the entity name, its value, and the source Excel file path
-            // so the agent has full context to locate the spreadsheet and generate tests.
-            for (const { entityName, entityValue } of entityList) {
-              // Construct the prompt for the lending-api-junit-generator agent.
-              // The agent reads this to determine which JUnit classes to generate.
+            // STEP 5: For each qualifying sheet, build and log a separate agent prompt.
+            // Each prompt carries the sheet type, ENTITY_NAME, its value, and the
+            // Excel file path so the agent has full context for that operation.
+            for (const { sheetType, entityName, entityValue } of sheetEntries) {
               const agentRef = '.github/agents/lending-api-junit-generator.agent.md';
-              const prompt   = `#lending-api-junit-generator Business Object is '${entityName}' with value '${entityValue}'. Specification spreadsheet path: '${filePath}'.`;
 
-              console.log(`  Entity  : ${entityName}`);
-              console.log(`  Value   : ${entityValue}`);
-              console.log(`  File    : ${filePath}`);
-              console.log(`  Agent   : ${agentRef}`);
-              console.log(`  Prompt  : ${prompt}`);
+              // Construct the agent prompt for this specific sheet.
+              // Format: #agent EntityName | SheetType | Value | FilePath
+              const prompt =
+                `#lending-api-junit-generator` +
+                ` Business Object is '${entityName}'.` +
+                ` Operation: '${sheetType}'.` +
+                ` Specification spreadsheet path: '${filePath}'`;
 
-              // Append invocation details to the workflow step summary for full visibility
+              console.log(`  Sheet     : ${sheetType}`);
+              console.log(`  EntityName: ${entityName}`);
+              console.log(`  Value     : ${entityValue}`);
+              console.log(`  FilePath  : ${filePath}`);
+              console.log(`  Agent     : ${agentRef}`);
+              console.log(`  Prompt    : ${prompt}`);
+
+              // Append this invocation to the workflow step summary for full visibility
               if (summaryPath) {
                 appendFileSync(summaryPath,
-                  `### Agent Invocation — ${entityName}\n` +
+                  `### Agent Invocation — ${entityName} (${sheetType})\n` +
                   `| Field | Value |\n|---|---|\n` +
-                  `| **Entity** | \`${entityName}\` |\n` +
+                  `| **Sheet Type** | \`${sheetType}\` |\n` +
+                  `| **Entity Name** | \`${entityName}\` |\n` +
                   `| **Value** | \`${entityValue}\` |\n` +
                   `| **Spreadsheet** | \`${filePath}\` |\n` +
                   `| **Agent** | \`${agentRef}\` |\n` +
@@ -211,8 +261,8 @@ jobs:
               }
             }
 
-            // STEP 6: All entities from this file have been sent to the agent.
-            //         Rename the file by prepending 'done_' to signal completion.
+            // STEP 6: All sheets for this Excel file have been sent to the agent.
+            //         Rename the file by prepending 'done_' to mark it as processed.
             const dir      = dirname(filePath);
             const filename = basename(filePath);
             const donePath = join(dir, `done_${filename}`);
