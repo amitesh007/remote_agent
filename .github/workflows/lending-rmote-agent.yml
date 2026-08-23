@@ -296,15 +296,15 @@ jobs:
             echo "==========================================================="
 
             # Create the GitHub issue. The issue body references the custom agent
-            # and contains one skill prompt per worksheet of this spreadsheet.
+            # and contains the entity value + spreadsheet path.
             # Assigning to 'copilot' triggers the GitHub Copilot coding agent.
-            ISSUE_NUMBER=$(gh issue create \
+            # gh issue create prints the issue URL — extract the number from it.
+            ISSUE_URL=$(gh issue create \
               --repo "${GITHUB_REPOSITORY}" \
               --title "Generate JUnit tests: ${FILENAME%.xlsx}" \
               --body-file "${ISSUE_FILE}" \
-              --assignee "copilot" \
-              --json number \
-              --jq '.number')
+              --assignee "copilot")
+            ISSUE_NUMBER="${ISSUE_URL##*/}"
 
             echo "  Created issue #${ISSUE_NUMBER} — assigned to GitHub Copilot"
             echo "  https://github.com/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}"
