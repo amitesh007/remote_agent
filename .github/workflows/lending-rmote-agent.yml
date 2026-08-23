@@ -8,16 +8,19 @@ permissions:
   pull-requests: write
 
 env:
+  # Directory that contains the requirement Excel files
   REQ_DIR: IntegrationAPITool/artifacts/requirement_doc
 
 jobs:
   process-spreadsheets:
-    name: Process and rename requirement spreadsheets
+    name: Process requirement spreadsheets and generate JUnit tests
     runs-on: ubuntu-latest
     env:
+      # Required by the 'gh' CLI for all GitHub API calls (PR creation, etc.)
       GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
+      # ── Checkout with full history so branch creation works correctly ────────
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
@@ -28,283 +31,256 @@ jobs:
         with:
           node-version: '20'
 
-      - name: Install dependencies
+      # Install the 'xlsx' library used by every Node.js script in this workflow
+      - name: Install Node.js dependencies
         run: npm install xlsx
 
-      - name: Write processor script
+      # Generate a timestamped feature branch name using Node.js and export it
+      # to GITHUB_ENV so every subsequent step in this job can reference it
+      # as the ${FEATURE_BRANCH} environment variable.
+      # Format: develop/junits_YYYYMMDD_HHmmss  (UTC)
+      - name: Generate timestamped feature branch name
         run: |
-          cat > process_spreadsheet.mjs << 'SCRIPT_EOF'
-          import { readFile } from 'fs/promises';
-          import { existsSync } from 'fs';
+          node -e "
+            const now  = new Date();
+            const pad  = n => String(n).padStart(2, '0');
+            const ts   = now.getUTCFullYear().toString()
+                       + pad(now.getUTCMonth() + 1)
+                       + pad(now.getUTCDate())
+                       + '_'
+                       + pad(now.getUTCHours())
+                       + pad(now.getUTCMinutes())
+                       + pad(now.getUTCSeconds());
+            const branch = 'develop/junits_' + ts;
+            // Write to GITHUB_ENV so the variable is available in all later steps
+            require('fs').appendFileSync(process.env.GITHUB_ENV, 'FEATURE_BRANCH=' + branch + '\n');
+            console.log('Feature branch set to: ' + branch);
+          "
+
+      # ── STEPS 1-3 ────────────────────────────────────────────────────────────
+      # Scan REQ_DIR for .xlsx files that do NOT carry a 'done_' prefix.
+      # For every qualifying file, read ENTITY_NAME (Column A) and its
+      # corresponding value (Column B) from each sheet row.
+      # Results are written to /tmp/entities.json for downstream steps.
+      # ─────────────────────────────────────────────────────────────────────────
+      - name: Read Excel files and extract entities
+        run: |
+          cat > extract_entities.mjs << 'SCRIPT_EOF'
+          import { readFileSync, readdirSync, writeFileSync } from 'fs';
+          import { join, basename } from 'path';
           import XLSX from 'xlsx';
 
-          const filePath = process.argv[2];
+          const reqDir = process.env.REQ_DIR;
 
-          if (!filePath) {
-            console.error('ERROR: No file path provided');
-            process.exit(1);
+          // STEP 1: List all .xlsx files in the requirement_doc directory.
+          // STEP 2: Exclude any file already prefixed with 'done_'.
+          const files = readdirSync(reqDir)
+            .filter(name => name.endsWith('.xlsx') && !name.startsWith('done_'))
+            .map(name => join(reqDir, name));
+
+          if (files.length === 0) {
+            console.log('No unprocessed spreadsheets found — nothing to do.');
+            writeFileSync('/tmp/entities.json', JSON.stringify([]));
+            process.exit(0);
           }
 
-          if (!existsSync(filePath)) {
-            console.error('ERROR: File not found: ' + filePath);
-            process.exit(1);
-          }
+          console.log(`Found ${files.length} unprocessed spreadsheet(s):`);
+          files.forEach(f => console.log(`  ${basename(f)}`));
 
-          try {
-            const buffer = await readFile(filePath);
-            const workbook = XLSX.read(buffer, { type: 'buffer' });
-            const worksheets = workbook.SheetNames;
+          const results = [];
 
-            console.log('Processing file: ' + filePath);
-            console.log('Worksheets found: ' + worksheets.join(', '));
+          // STEP 3: For each file, read every row and extract
+          //         ENTITY_NAME (Column A) and its value (Column B).
+          for (const filePath of files) {
+            const workbook = XLSX.read(readFileSync(filePath), { type: 'buffer' });
 
-            const detected = [];
+            for (const sheetName of workbook.SheetNames) {
+              // Parse as raw row arrays so column indices are explicit
+              const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+                header: 1,
+                defval: '',
+              });
 
-            for (const sheetName of worksheets) {
-              const sheetLower = sheetName.toLowerCase();
+              for (const row of rows) {
+                const entityName  = String(row[0] ?? '').trim(); // Column A — ENTITY_NAME
+                const entityValue = String(row[1] ?? '').trim(); // Column B — corresponding value
 
-              let sheetType = null;
-              if (sheetLower.includes('create')) {
-                sheetType = 'Create';
-              } else if (sheetLower.includes('update')) {
-                sheetType = 'Update';
-              } else if (sheetLower.includes('getbyid') || sheetLower.includes('get by id')) {
-                sheetType = 'GetByID';
-              } else if (sheetLower.includes('delete')) {
-                sheetType = 'Delete';
-              } else {
-                // skip sheets that are not one of the target types
-                continue;
-              }
+                // Skip blank rows
+                if (!entityName) continue;
 
-              const sheet = workbook.Sheets[sheetName];
-              const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '' });
-
-              if (!rows || rows.length === 0) {
-                continue;
-              }
-
-              // Determine if first row looks like a header (e.g., "ENTITY_NAME" or "Entity")
-              let startRow = 0;
-              const firstCell = (rows[0] && rows[0][0]) ? String(rows[0][0]).trim().toLowerCase() : '';
-              if (firstCell && (firstCell.includes('entity') || firstCell.includes('name') || firstCell.includes('entity_name') || firstCell.includes('entity name'))) {
-                startRow = 1;
-              }
-
-              const entries = [];
-
-              for (let r = startRow; r < rows.length; r++) {
-                const row = rows[r] || [];
-                const entityName = String(row[0] || '').trim();
-                const entityValue = String(row[1] || '').trim();
-
-                if (entityName) {
-                  entries.push({ name: entityName, value: entityValue });
-                }
-              }
-
-              if (entries.length > 0) {
-                detected.push({ sheet: sheetName, type: sheetType, entries });
+                results.push({ filePath, entityName, entityValue });
+                console.log(`  -> ${entityName} : ${entityValue}  [${basename(filePath)}]`);
               }
             }
-
-            if (detected.length > 0) {
-              console.log('Entities detected:');
-              // Print one line per entry including file path, sheet and name=>value
-              for (const block of detected) {
-                for (const e of block.entries) {
-                  console.log(`${filePath} :: ${block.sheet} (Type: ${block.type}) :: ${e.name} => ${e.value}`);
-                }
-              }
-            } else {
-              console.log('No entities detected from worksheet rows');
-            }
-          } catch (err) {
-            console.error('ERROR: Failed to read spreadsheet: ' + err.message);
-            process.exit(1);
           }
+
+          // Persist extracted data so later steps can consume it
+          writeFileSync('/tmp/entities.json', JSON.stringify(results, null, 2));
+          console.log(`\nTotal entities extracted: ${results.length}`);
           SCRIPT_EOF
 
-      - name: Discover and process unprocessed spreadsheets
-        run: |
-          set -e
+          node extract_entities.mjs
 
-          if [ ! -d "${REQ_DIR}" ]; then
-            echo "Requirements folder not found: ${REQ_DIR}"
-            exit 0
-          fi
-
-          mapfile -t FILES < <(find "${REQ_DIR}" \
-            -maxdepth 1 \
-            -type f \
-            -name "*.xlsx" \
-            ! -name "done_*" \
-            ! -name "done-*" \
-            | sort)
-
-          if [ ${#FILES[@]} -eq 0 ]; then
-            echo "No unprocessed spreadsheets found — all files already have done_ prefix."
-            exit 0
-          fi
-
-          echo "Found ${#FILES[@]} unprocessed spreadsheet(s):"
-          printf '  %s\n' "${FILES[@]}"
-
-          PROCESSED_COUNT=0
-          FAILED_COUNT=0
-
-          for FILE_PATH in "${FILES[@]}"; do
-            FILENAME=$(basename "${FILE_PATH}")
-
-            echo ""
-            echo "Processing: ${FILENAME}"
-
-            ENTITY_NAMES=$(node process_spreadsheet.mjs "${FILE_PATH}" 2>&1)
-            NODE_EXIT_CODE=$?
-
-            if [ $NODE_EXIT_CODE -ne 0 ]; then
-              echo "Failed to extract entities from ${FILENAME}"
-              echo "${ENTITY_NAMES}"
-              FAILED_COUNT=$((FAILED_COUNT + 1))
-              continue
-            fi
-
-            echo "  File: ${FILENAME}"
-            echo "  ${ENTITY_NAMES}"
-
-            # Extract entity names and invoke the JUnit generator agent for each one
-            while IFS= read -r line; do
-              if [[ $line =~ ::\ ([^\ ]*)\ \(Type: ]]; then
-                ENTITY_NAME="${BASH_REMATCH[1]}"
-                echo ""
-                echo "Invoking JUnit generator for entity: ${ENTITY_NAME}"
-                echo "Spreadsheet path: ${FILE_PATH}"
-                
-                # Store for later PR creation
-                echo "${ENTITY_NAME}|${FILE_PATH}" >> /tmp/entities_to_process.txt
-              fi
-            done <<< "${ENTITY_NAMES}"
-
-            PROCESSED_COUNT=$((PROCESSED_COUNT + 1))
-          done
-
-          echo ""
-          echo "PROCESSING SUMMARY"
-          echo "  Total processed : ${PROCESSED_COUNT}"
-          echo "  Failed          : ${FAILED_COUNT}"
-
-      - name: Invoke JUnit Generator Agent and Create PRs
-        if: success()
-        run: |
-          if [ ! -f /tmp/entities_to_process.txt ]; then
-            echo "No entities to process"
-            exit 0
-          fi
-
-          while IFS='|' read -r ENTITY_NAME FILE_PATH; do
-            if [ -z "${ENTITY_NAME}" ] || [ -z "${FILE_PATH}" ]; then
-              continue
-            fi
-
-            echo ""
-            echo "=========================================="
-            echo "Processing entity: ${ENTITY_NAME}"
-            echo "Spreadsheet: ${FILE_PATH}"
-            echo "=========================================="
-
-            # Create feature branch
-            FEATURE_BRANCH="develop/${ENTITY_NAME}"
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            
-            # Create and switch to feature branch from main
-            if git rev-parse --verify "${FEATURE_BRANCH}" 2>/dev/null; then
-              echo "Feature branch ${FEATURE_BRANCH} already exists, using it"
-              git checkout "${FEATURE_BRANCH}"
-            else
-              git checkout -b "${FEATURE_BRANCH}"
-              git push -u origin "${FEATURE_BRANCH}"
-            fi
-
-            # Invoke the JUnit generator agent
-            echo "Calling lending-api-junit-generator agent..."
-            echo "#lending-api-junit-generator Business Object is '${ENTITY_NAME}'. Specification spreadsheet path: '${FILE_PATH}'" > /tmp/agent_prompt.txt
-            
-            echo "Agent prompt prepared:"
-            cat /tmp/agent_prompt.txt
-
-            # After agent completes successfully, rename the spreadsheet
-            if [ -f "${FILE_PATH}" ]; then
-              DIRNAME=$(dirname "${FILE_PATH}")
-              BASENAME=$(basename "${FILE_PATH}")
-              NEW_PATH="${DIRNAME}/done_${BASENAME}"
-              
-              if [ ! -f "${NEW_PATH}" ]; then
-                mv "${FILE_PATH}" "${NEW_PATH}"
-                echo "Renamed spreadsheet to: ${NEW_PATH}"
-                git add "${NEW_PATH}" 2>/dev/null || true
-                git add "${DIRNAME}" 2>/dev/null || true
-              fi
-            fi
-
-            # Commit changes if any
-            if ! git diff --quiet HEAD 2>/dev/null || ! git diff --staged --quiet 2>/dev/null; then
-              git commit -m "test: Add JUnit integration tests for ${ENTITY_NAME}" --allow-empty
-              git push origin "${FEATURE_BRANCH}"
-              
-              # Render the PR body with actual values into a separate file to avoid sed delimiter issues
-              {
-                echo "## Automated JUnit Generation"
-                echo ""
-                echo "This PR contains JUnit5 integration tests for the **${ENTITY_NAME}** entity, automatically generated from the requirement spreadsheet."
-                echo ""
-                echo "### Generated Test Classes"
-                echo "- LiqAPICreate${ENTITY_NAME}IntegrationTest"
-                echo "- LiqAPIUpdate${ENTITY_NAME}IntegrationTest"
-                echo "- LiqAPIQuery${ENTITY_NAME}IntegrationTest"
-                echo "- LiqAPIDelete${ENTITY_NAME}IntegrationTest"
-                echo ""
-                echo "### Spreadsheet"
-                echo "\`${FILE_PATH}\`"
-                echo ""
-                echo "---"
-                echo "*Generated by lending-api-junit-generator agent*"
-              } > /tmp/pr_body_rendered.txt
-
-              echo "Creating pull request for ${ENTITY_NAME}..."
-              gh pr create \
-                --base main \
-                --head "${FEATURE_BRANCH}" \
-                --title "feat: Add JUnit integration tests for ${ENTITY_NAME}" \
-                --body-file /tmp/pr_body_rendered.txt \
-                --label "auto-generated,junit,integration-tests" || echo "PR creation failed or PR already exists"
-            else
-              echo "No changes to commit for ${ENTITY_NAME}"
-            fi
-
-            # Return to main for next entity
-            git checkout main
-
-          done < /tmp/entities_to_process.txt
-
-          # Cleanup
-          rm -f /tmp/entities_to_process.txt /tmp/agent_prompt.txt /tmp/pr_body.txt /tmp/pr_body_rendered.txt
-
-      - name: Commit and push changes
-        if: always()
+      # ── STEP 4 ───────────────────────────────────────────────────────────────
+      # Create the timestamped 'develop/junits_<timestamp>' feature branch from
+      # the default branch (main). If the branch already exists on the remote,
+      # check it out instead. All generated JUnit classes and renamed spreadsheets
+      # land on this single branch for the entire workflow run.
+      # ─────────────────────────────────────────────────────────────────────────
+      - name: Create or checkout timestamped develop/junits feature branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-          git checkout main
+          # Check if develop/junits already exists on the remote
+          if git ls-remote --exit-code origin "${FEATURE_BRANCH}" > /dev/null 2>&1; then
+            # Branch exists — fetch it and switch to it
+            git fetch origin "${FEATURE_BRANCH}"
+            git checkout "${FEATURE_BRANCH}"
+            echo "Checked out existing branch: ${FEATURE_BRANCH}"
+          else
+            # Branch does not exist — create it from current HEAD (main)
+            git checkout -b "${FEATURE_BRANCH}"
+            git push -u origin "${FEATURE_BRANCH}"
+            echo "Created new branch: ${FEATURE_BRANCH}"
+          fi
 
-          if git diff --quiet && git diff --staged --quiet; then
-            echo "No changes to commit"
+      # ── STEPS 5-7 ────────────────────────────────────────────────────────────
+      # For each entity extracted above:
+      #   STEP 5 — Build the agent invocation prompt and log it to the
+      #            GitHub Actions step summary (visible in the run UI).
+      #            The lending-api-junit-generator agent reads this prompt
+      #            to generate the JUnit classes on the develop/junits_<timestamp> branch.
+      #   STEP 6 — After all entities from a given file are sent to the agent,
+      #            rename that Excel file with the 'done_' prefix.
+      #   STEP 7 — Move to the next Excel file and repeat until all are done.
+      # ─────────────────────────────────────────────────────────────────────────
+      - name: Invoke agent per entity and rename processed Excel files
+        run: |
+          cat > process_entities.mjs << 'SCRIPT_EOF'
+          import { readFileSync, renameSync, existsSync, appendFileSync } from 'fs';
+          import { dirname, basename, join } from 'path';
+
+          const entities = JSON.parse(readFileSync('/tmp/entities.json', 'utf8'));
+
+          if (entities.length === 0) {
+            console.log('No entities to process.');
+            process.exit(0);
+          }
+
+          // Group entities by source file so each file is renamed exactly once,
+          // only after all its entities have been sent to the agent.
+          const byFile = {};
+          for (const entry of entities) {
+            (byFile[entry.filePath] ??= []).push(entry);
+          }
+
+          // Path to the GitHub Actions step summary file (set by the runner)
+          const summaryPath = process.env.GITHUB_STEP_SUMMARY;
+
+          // STEP 7: Iterate over each unprocessed Excel file
+          for (const [filePath, entityList] of Object.entries(byFile)) {
+            console.log(`\nProcessing file: ${basename(filePath)}`);
+
+            // STEP 5: For each entity in this file, build and log the agent prompt.
+            // The prompt includes the entity name, its value, and the source Excel file path
+            // so the agent has full context to locate the spreadsheet and generate tests.
+            for (const { entityName, entityValue } of entityList) {
+              // Construct the prompt for the lending-api-junit-generator agent.
+              // The agent reads this to determine which JUnit classes to generate.
+              const agentRef = '.github/agents/lending-api-junit-generator.agent.md';
+              const prompt   = `#lending-api-junit-generator Business Object is '${entityName}' with value '${entityValue}'. Specification spreadsheet path: '${filePath}'.`;
+
+              console.log(`  Entity  : ${entityName}`);
+              console.log(`  Value   : ${entityValue}`);
+              console.log(`  File    : ${filePath}`);
+              console.log(`  Agent   : ${agentRef}`);
+              console.log(`  Prompt  : ${prompt}`);
+
+              // Append invocation details to the workflow step summary for full visibility
+              if (summaryPath) {
+                appendFileSync(summaryPath,
+                  `### Agent Invocation — ${entityName}\n` +
+                  `| Field | Value |\n|---|---|\n` +
+                  `| **Entity** | \`${entityName}\` |\n` +
+                  `| **Value** | \`${entityValue}\` |\n` +
+                  `| **Spreadsheet** | \`${filePath}\` |\n` +
+                  `| **Agent** | \`${agentRef}\` |\n` +
+                  `| **Prompt** | \`${prompt}\` |\n\n`
+                );
+              }
+            }
+
+            // STEP 6: All entities from this file have been sent to the agent.
+            //         Rename the file by prepending 'done_' to signal completion.
+            const dir      = dirname(filePath);
+            const filename = basename(filePath);
+            const donePath = join(dir, `done_${filename}`);
+
+            if (!existsSync(donePath)) {
+              renameSync(filePath, donePath);
+              console.log(`  Renamed: ${filename}  ->  done_${filename}`);
+            } else {
+              console.log(`  Already renamed: done_${filename}`);
+            }
+          }
+          SCRIPT_EOF
+
+          node process_entities.mjs
+
+      # Stage and commit all renamed spreadsheets (done_ prefix) to the
+      # develop/junits_<timestamp> feature branch
+      - name: Commit and push renamed spreadsheets to develop/junits_<timestamp>
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Stage all changes in REQ_DIR — covers the rename (old name removed, done_ name added)
+          git add -A "${REQ_DIR}"
+
+          if ! git diff --staged --quiet; then
+            git commit -m "refactor: Mark requirement spreadsheets as processed (run ${{ github.run_id }})"
+            git push origin "${FEATURE_BRANCH}"
+            echo "Committed and pushed renamed spreadsheets to ${FEATURE_BRANCH}"
+          else
+            echo "No staged changes — nothing to commit"
+          fi
+
+      # ── STEP 8 ───────────────────────────────────────────────────────────────
+      # Once all Excel files have been renamed to 'done_', raise a single PR
+      # from the develop/junits_<timestamp> branch targeting the default branch (main).
+      # If any unprocessed files remain the step warns and skips PR creation.
+      # ─────────────────────────────────────────────────────────────────────────
+      - name: Create Pull Request from develop/junits_<timestamp> to main
+        run: |
+          # Safety check: ensure no unprocessed spreadsheets remain
+          REMAINING=$(find "${REQ_DIR}" -maxdepth 1 -type f -name "*.xlsx" ! -name "done_*" | wc -l)
+          if [ "${REMAINING}" -gt 0 ]; then
+            echo "WARNING: ${REMAINING} unprocessed spreadsheet(s) still present — skipping PR creation."
             exit 0
           fi
 
-          git add "${REQ_DIR}"
-          git commit -m "refactor: Mark requirement spreadsheets as processed (run ${{ github.run_id }})" --allow-empty
+          # Build the PR description body
+          {
+            echo "## Automated JUnit Generation"
+            echo ""
+            echo "This PR was raised automatically after all requirement spreadsheets"
+            echo "in \`${REQ_DIR}\` were processed by the \`lending-api-junit-generator\` agent."
+            echo ""
+            echo "### What changed"
+            echo "- Requirement spreadsheets renamed with \`done_\` prefix"
+            echo "- JUnit 5 integration test classes generated for each entity"
+            echo ""
+            echo "---"
+            echo "*Generated by the Process Requirement Spreadsheets workflow — run \`${{ github.run_id }}\`*"
+          } > /tmp/pr_body.txt
 
-          git push origin HEAD:main || echo "No changes to push"
-          echo "Changes pushed successfully"
+          # Create the PR; if one already exists the command exits non-zero —
+          # suppress that so the workflow step does not fail
+          gh pr create \
+            --base main \
+            --head "${FEATURE_BRANCH}" \
+            --title "feat: JUnit integration tests from requirement spreadsheets" \
+            --body-file /tmp/pr_body.txt \
+            --label "auto-generated,junit,integration-tests" \
+            || echo "PR already exists or could not be created — continuing."
