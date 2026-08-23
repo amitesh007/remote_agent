@@ -1,0 +1,17 @@
+{
+	"modular":
+	{
+		"integrationAPIName":"ConsolidatedCustomerIntegration",
+		"ipFilePath":"C:\\RestFramework\\input",
+		"opFilePath":"C:\\RestFramework\\output",
+		"requestPackageName":"com.finastra.liq.module.customer.model.request",
+		"responsePackageName":"com.finastra.liq.module.customer.model.response",
+		"commonPackageName":"com.finastra.liq.module.customer.model.common",
+		"createRequestFileName":"create_consolidated_customer_request.xml",
+		"updateRequestFileName":"update_consolidated_customer_request.xml",
+		"queryRequestFileName":"query_consolidated_customer_request.xml",
+		"createResponseFileName":"create_consolidated_customer_response.xml",
+		"updateResponseFileName":"update_consolidated_customer_response.xml",
+		"queryResponseFileName":"query_consolidated_customer_response.xml"
+	}
+}
