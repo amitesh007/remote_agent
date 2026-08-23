@@ -298,13 +298,24 @@ jobs:
 
             # Create the GitHub issue. The issue body references the custom agent
             # and contains the entity value + spreadsheet path.
-            # Assigning to 'copilot' triggers the GitHub Copilot coding agent.
-            # gh issue create prints the issue URL — extract the number from it.
-            ISSUE_URL=$(gh issue create \
-              --repo "${GITHUB_REPOSITORY}" \
-              --title "Generate JUnit tests: ${FILENAME%.xlsx}" \
-              --body-file "${ISSUE_FILE}" \
-              --assignee "copilot")
+            # Assigning to 'copilot' requires a user PAT — GITHUB_TOKEN (an app
+            # installation token) is rejected for this operation.
+            # Store a personal access token in the repository secret CODESPACES_PAT.
+            # If CODESPACES_PAT is not set the issue is created without the assignee
+            # and a warning is printed.
+            if [ -n "${{ secrets.CODESPACES_PAT }}" ]; then
+              ISSUE_URL=$(GH_TOKEN="${{ secrets.CODESPACES_PAT }}" gh issue create \
+                --repo "${GITHUB_REPOSITORY}" \
+                --title "Generate JUnit tests: ${FILENAME%.xlsx}" \
+                --body-file "${ISSUE_FILE}" \
+                --assignee "copilot")
+            else
+              echo "  WARNING: CODESPACES_PAT secret not set — creating issue without copilot assignee."
+              ISSUE_URL=$(gh issue create \
+                --repo "${GITHUB_REPOSITORY}" \
+                --title "Generate JUnit tests: ${FILENAME%.xlsx}" \
+                --body-file "${ISSUE_FILE}")
+            fi
             ISSUE_NUMBER="${ISSUE_URL##*/}"
 
             echo "  Created issue #${ISSUE_NUMBER} — assigned to GitHub Copilot"
