@@ -200,7 +200,7 @@ jobs:
               --repo "${GITHUB_REPOSITORY}" \
               --title "${ISSUE_TITLE}" \
               --body "${ISSUE_BODY}" \
-              --label "auto-generated,junit")
+              --label "junit-generated")
             ISSUE_NUMBER="${ISSUE_URL##*/}"
 
             echo "  Created issue #${ISSUE_NUMBER}: ${ISSUE_URL}"
