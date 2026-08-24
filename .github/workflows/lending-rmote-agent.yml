@@ -5,7 +5,7 @@ on:
   schedule:
     - cron: '*/5 * * * *'
   # Keep manual trigger available for ad-hoc runs
-  #workflow_dispatch:
+  workflow_dispatch:
 
 permissions:
   contents: read   # only needs read — no git pushes in this workflow
