@@ -1,9 +1,9 @@
 name: LENDING API JUNIT GENERATOR
 
 on:
-  # Run automatically every 5 minutes (GitHub's minimum supported interval).
+  # Run automatically every 2 hours.
   schedule:
-    - cron: '*/5 * * * *'
+    - cron: '0 */2 * * *'
   # Keep manual trigger available for ad-hoc runs
   workflow_dispatch:
 
