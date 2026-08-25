@@ -44,8 +44,12 @@ public class LiqAPIUpdateLoanInterestPaymentIntegrationTest extends BaseTestLoan
         liqAPIDataUpdate.getOutstandingTransactionIdentifier().setIdentifierValue(outputCreate.getLoanTransactionId());
         liqAPIDataUpdate.setMatchUpdatedTimestamp(timestampFromQuery);
         liqAPIDataUpdate.basicValidate();
+        Object updateResult = liqAPIDataUpdate.basicExecute();
+
         LiqAPILoanInterestPaymentIntegrationAsReturnValue outputUpdate =
-            (LiqAPILoanInterestPaymentIntegrationAsReturnValue) liqAPIDataUpdate.basicExecute();
+            updateResult instanceof List
+                ? ((List<LiqAPILoanInterestPaymentIntegrationAsReturnValue>) updateResult).get(0)
+                : (LiqAPILoanInterestPaymentIntegrationAsReturnValue) updateResult;
 
         Assertions.assertNotNull(outputUpdate);
         Assertions.assertNotNull(outputUpdate.getLoanTransactionId());

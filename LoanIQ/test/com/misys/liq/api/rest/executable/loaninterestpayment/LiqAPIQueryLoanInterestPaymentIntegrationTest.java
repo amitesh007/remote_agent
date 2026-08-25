@@ -20,6 +20,7 @@ public class LiqAPIQueryLoanInterestPaymentIntegrationTest extends BaseTestLoanI
             GeneralIntegrationMapping.CREATE_INTEREST_PMT_INTEGRATION.toString(),
             LiqAPICreateLoanInterestPaymentIntegration.class);
         createData.setIdempotencyKey(LiqApiDataUtil.generateIdempotencyKey());
+        createData.basicValidate();
         List<LiqAPILoanInterestPaymentIntegrationAsReturnValue> createResults =
             (List<LiqAPILoanInterestPaymentIntegrationAsReturnValue>) createData.basicExecute();
         Assertions.assertNotNull(createResults);
@@ -29,6 +30,7 @@ public class LiqAPIQueryLoanInterestPaymentIntegrationTest extends BaseTestLoanI
         LiqAPIQueryLoanInterestPaymentIntegration liqAPIDataQuery =
             (LiqAPIQueryLoanInterestPaymentIntegration) LiqAPIQueryLoanInterestPaymentIntegration.clazz.basicNew();
         liqAPIDataQuery.getOutstandingTransactionIdentifier().setIdentifierValue(loanTransactionId);
+        LiqApiDataUtil.callBasicValidate(liqAPIDataQuery);
 
         List<LiqAPILoanInterestPaymentIntegrationAsReturnValue> output =
             (List<LiqAPILoanInterestPaymentIntegrationAsReturnValue>) LiqApiDataUtil.callBasicExecute(liqAPIDataQuery);
@@ -48,6 +50,7 @@ public class LiqAPIQueryLoanInterestPaymentIntegrationTest extends BaseTestLoanI
         LiqAPIQueryLoanInterestPaymentIntegration liqAPIDataQuery =
             (LiqAPIQueryLoanInterestPaymentIntegration) LiqAPIQueryLoanInterestPaymentIntegration.clazz.basicNew();
         liqAPIDataQuery.getOutstandingTransactionIdentifier().setIdentifierValue("UNKNOWN-TRANSACTION-ID");
+        LiqApiDataUtil.callBasicValidate(liqAPIDataQuery);
 
         try {
             LiqApiDataUtil.callBasicExecute(liqAPIDataQuery);
