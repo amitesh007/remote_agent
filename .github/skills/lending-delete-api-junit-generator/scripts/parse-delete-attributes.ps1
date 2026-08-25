@@ -6,9 +6,10 @@
     Reads sharedStrings.xml and the specified worksheet XML to extract attribute definitions.
     Outputs structured data: Category, FieldName, DataType, Required, Description, DefaultValue, MappingType.
 
-    Supports two common column layouts:
+    Supports common column layouts:
     - Layout A (columns B,G,H,I,J): Category=B, Field=G, Type=H, Required=I, Desc=J
     - Layout B (columns B,F,G,H,I,J): Category=B, Field=F, Type=G, Required=H, Desc=I, Default=J
+    - Layout C (columns B,E,F,G,H): Category=B, Field=E, Type=F, Required=G, Desc=H
 
 .PARAMETER ExtractedPath
     Path to the extracted spreadsheet directory
@@ -39,7 +40,7 @@ param(
     [string]$SheetFile,
 
     [Parameter(Mandatory=$false)]
-    [ValidateSet("A", "B", "Auto")]
+    [ValidateSet("A", "B", "C", "Auto")]
     [string]$Layout = "Auto",
 
     [Parameter(Mandatory=$false)]
@@ -90,32 +91,46 @@ function Get-CellByColumn($row, $colLetter) {
     return Get-CellValue $cell
 }
 
-# Auto-detect layout by checking header row
+# Auto-detect layout by scanning for the actual attribute header. Some requirement
+# sheets use the historical spelling "Attriute Field Name" and place the input
+# table after prerequisite text.
+$headerIndex = -1
 if ($Layout -eq "Auto") {
-    $headerRow = $rows[$StartRow - 1]
-    if (-not $headerRow) {
-        # Try rows 3-6 for headers
-        for ($i = 2; $i -le 6; $i++) {
-            $headerRow = $rows[$i]
-            $testVal = Get-CellByColumn $headerRow "G"
-            if ($testVal -match 'Data Type|DataType|Type|Field') { break }
+    for ($i = 0; $i -lt $rows.Count; $i++) {
+        $candidate = $rows[$i]
+        $fieldHeader = Get-CellByColumn $candidate "E"
+        $typeHeader = Get-CellByColumn $candidate "F"
+        $requiredHeader = Get-CellByColumn $candidate "G"
+        $descriptionHeader = Get-CellByColumn $candidate "H"
+        if ($fieldHeader -match 'Attri[b]?ute\s+Field\s+Name' -and
+            $typeHeader -match 'Data\s*Type' -and
+            $requiredHeader -match 'Required' -and
+            $descriptionHeader -match 'Description') {
+            $headerIndex = $i
+            $Layout = "C"  # Field=E, Type=F, Required=G, Description=H
+            Write-Host "Auto-detected Layout C (Field=E, Type=F, Required=G)"
+            break
         }
     }
-    
-    $colG = Get-CellByColumn $headerRow "G"
-    $colH = Get-CellByColumn $headerRow "H"
-    
-    if ($colG -match 'Data Type|DataType|Type') {
-        $Layout = "B"  # Field is in column F, Type in G
-        Write-Host "Auto-detected Layout B (Field=F, Type=G, Required=H)"
-    } elseif ($colH -match 'Data Type|DataType|Type') {
-        $Layout = "A"  # Field is in column G, Type in H
-        Write-Host "Auto-detected Layout A (Field=G, Type=H, Required=I)"
-    } else {
-        Write-Host "Could not auto-detect layout from header row. Trying Layout B as default."
-        $Layout = "B"
+
+    if ($Layout -eq "Auto") {
+        $headerRow = $rows[$StartRow - 1]
+        $colG = Get-CellByColumn $headerRow "G"
+        $colH = Get-CellByColumn $headerRow "H"
+        if ($colG -match 'Data Type|DataType|Type') {
+            $Layout = "B"  # Field is in column F, Type in G
+            Write-Host "Auto-detected Layout B (Field=F, Type=G, Required=H)"
+        } elseif ($colH -match 'Data Type|DataType|Type') {
+            $Layout = "A"  # Field is in column G, Type in H, Required=I
+            Write-Host "Auto-detected Layout A (Field=G, Type=H, Required=I)"
+        } else {
+            Write-Host "Could not auto-detect layout from header row. Trying Layout B as default."
+            $Layout = "B"
+        }
     }
 }
+
+$parseStart = if ($Layout -eq "C") { $headerIndex + 1 } else { $StartRow }
 
 Write-Host ""
 Write-Host "Parsing rows $StartRow to $EndRow from $SheetFile (Layout $Layout)"
@@ -124,9 +139,11 @@ Write-Host "=" * 80
 $attributes = @()
 $currentCategory = ""
 
-for ($i = $StartRow; $i -le [Math]::Min($EndRow, $rows.Count - 1); $i++) {
+for ($i = $parseStart; $i -le [Math]::Min($EndRow, $rows.Count - 1); $i++) {
     $row = $rows[$i]
     if (-not $row) { continue }
+    if ((Get-CellByColumn $row "A") -match '^OUTPUT$' -or
+        (Get-CellByColumn $row "E") -match 'Attri[b]?ute\s+Field\s+Name') { break }
 
     # Get category from column B
     $cat = Get-CellByColumn $row "B"
@@ -140,6 +157,13 @@ for ($i = $StartRow; $i -le [Math]::Min($EndRow, $rows.Count - 1); $i++) {
         $description = Get-CellByColumn $row "J"
         $defaultValue = Get-CellByColumn $row "K"
         $mappingType = Get-CellByColumn $row "L"
+    } elseif ($Layout -eq "C") {
+        $fieldName = Get-CellByColumn $row "E"
+        $dataType = Get-CellByColumn $row "F"
+        $required = Get-CellByColumn $row "G"
+        $description = Get-CellByColumn $row "H"
+        $defaultValue = Get-CellByColumn $row "J"
+        $mappingType = $null
     } else {
         $fieldName = Get-CellByColumn $row "F"
         $dataType = Get-CellByColumn $row "G"

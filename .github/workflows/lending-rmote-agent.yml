@@ -45,11 +45,12 @@ jobs:
       #   STEP 3 — Search GitHub Issues for a matching issue title.
       #   STEP 4 — Issue OPEN  → skip (agent is still working on it).
       #   STEP 5 — Issue CLOSED → skip (already fully processed).
-      #   STEP 6 — No issue exists → read ENTITY_NAME (A2) and its value (B2)
+      #   STEP 6 — No issue exists → locate ENTITY_NAME and its value in a
+      #            qualifying worksheet (the row is not fixed across workbooks)
       #            from the first qualifying worksheet.
       #   STEP 7 — Create a new GitHub Issue containing:
       #              • agent: Lending API JUnit Generator
-      #              • ENTITY_NAME value (B2)
+      #              • entity value from the ENTITY_NAME row
       #              • Excel file path
       #              • Agent invocation prompt
       #   STEP 8 — Assign the issue to 'copilot' to trigger the agent,
@@ -57,10 +58,10 @@ jobs:
       # ─────────────────────────────────────────────────────────────────────────
       - name: Process Excel files and create agent issues
         run: |
-          # ── Node.js helper: read ENTITY_NAME (A2) and entity value (B2) ────────
-          # Checks the first qualifying sheet (Create / Update / GetByID / Delete)
+          # ── Node.js helper: locate the ENTITY_NAME marker ─────────────────────
+          # Checks the qualifying sheets (Create / Update / GetByID / Delete)
           # and prints shell-sourceable key=value output.
-          cat > read_entity.mjs << 'SCRIPT_EOF'
+          cat > read_entity.mjs <<'SCRIPT_EOF'
           import { readFileSync } from 'fs';
           import XLSX from 'xlsx';
 
@@ -78,20 +79,18 @@ jobs:
               header: 1, defval: ''
             });
 
-            // Row index 1 = spreadsheet row 2  (A2 / B2); row 0 is the header.
-            if (rows.length < 2) continue;
+            for (const row of rows) {
+              if (String(row[0] ?? '').trim().toUpperCase() !== 'ENTITY_NAME') continue;
+              const entityValue = String(row[1] ?? '').trim();
+              if (!entityValue) continue;
 
-            const entityName  = String(rows[1][0] ?? '').trim(); // Column A — A2
-            const entityValue = String(rows[1][1] ?? '').trim(); // Column B — B2
-
-            if (entityName && entityValue) {
-              process.stdout.write('ENTITY_NAME=' + entityName + '\n');
+              process.stdout.write('ENTITY_NAME=ENTITY_NAME\n');
               process.stdout.write('ENTITY_VALUE=' + entityValue + '\n');
               process.exit(0);
             }
           }
 
-          process.stderr.write('No entity data found in A2/B2 of any target sheet.\n');
+          process.stderr.write('No ENTITY_NAME marker found in any target sheet.\n');
           process.exit(1);
           SCRIPT_EOF
 
@@ -152,7 +151,7 @@ jobs:
               continue
             fi
 
-            # ── STEP 6: No issue exists → read ENTITY_NAME (A2) & value (B2) ─
+            # ── STEP 6: No issue exists → read ENTITY_NAME from a target sheet ─
             echo "  No existing issue. Reading entity data from spreadsheet..."
 
             ENTITY_DATA=$(node read_entity.mjs "${FILE_PATH}" 2>&1)
@@ -166,17 +165,17 @@ jobs:
             ENTITY_VALUE=$(echo "${ENTITY_DATA}" | grep '^ENTITY_VALUE=' | cut -d= -f2-)
 
             if [ -z "${ENTITY_VALUE}" ]; then
-              echo "  WARNING: ENTITY_VALUE (B2) is blank in '${FILENAME}' — skipping."
+              echo "  WARNING: ENTITY_VALUE is blank in '${FILENAME}' — skipping."
               continue
             fi
 
-            echo "  ENTITY_NAME  (A2): ${ENTITY_NAME}"
-            echo "  ENTITY_VALUE (B2): ${ENTITY_VALUE}"
+            echo "  ENTITY_NAME  (worksheet marker): ${ENTITY_NAME}"
+            echo "  ENTITY_VALUE (ENTITY_NAME row): ${ENTITY_VALUE}"
 
             # ── STEP 7: Create a new GitHub Issue ────────────────────────────
             # The issue body contains:
             #   • The agent reference (Lending API JUnit Generator)
-            #   • ENTITY_NAME value (B2) and the spreadsheet path
+            #   • entity value from the ENTITY_NAME row and the spreadsheet path
             #   • The agent invocation prompt
             ISSUE_BODY=$(printf '%s\n' \
               "agent: Lending API JUnit Generator" \
