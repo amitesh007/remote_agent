@@ -46,13 +46,17 @@ jobs:
           fetch-depth: 0
           token: ${{ secrets.CODESPACES_PAT }}
 
-      # ── 2. Git identity (needed if the runner ever needs to push) ────────────
+      # ── 2. Install spreadsheet parser for workbook-derived entity names ────
+      - name: Install spreadsheet dependency
+        run: npm install --no-save xlsx@0.18.5
+
+      # ── 3. Git identity (needed if the runner ever needs to push) ────────────
       - name: Configure git identity
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      # ── 3. Labels (idempotent) ───────────────────────────────────────────────
+      # ── 4. Labels (idempotent) ───────────────────────────────────────────────
       - name: Ensure required labels exist
         env:
           GH_TOKEN: ${{ secrets.CODESPACES_PAT }}
@@ -105,12 +109,75 @@ jobs:
             FILENAME=$(basename "${NEXT_FILE}")
             NAME_NO_EXT="${FILENAME%.*}"
 
-            # ── Derive entity name (PascalCase, strip trailing "v1.2" version) ──
-            ENTITY_NAME=$(echo "${NAME_NO_EXT}" \
-              | sed -E 's/[[:space:]]+v[0-9]+(\.[0-9]+)*[[:space:]]*$//' \
-              | sed 's/[^[:alnum:]]/ /g' \
-              | awk '{for(i=1;i<=NF;i++) $i=toupper(substr($i,1,1)) substr($i,2)} 1' \
-              | tr -d ' ')
+            # ── Derive entity name from spreadsheet metadata when available; otherwise
+            #    fall back to the filename-derived PascalCase value and strip version tags.
+            ENTITY_NAME=$(node - <<'NODE' "${NEXT_FILE}" "${NAME_NO_EXT}"
+              const fs = require('fs');
+              const XLSX = require('xlsx');
+
+              const filePath = process.argv[2];
+              const fallbackName = process.argv[3] || '';
+              const targetSheets = new Set(['create', 'update', 'getbyid', 'delete']);
+
+              function normaliseLegacyName(name) {
+                const legacyNameCorrections = [
+                  [/LoanInitialDrawndown/gi, 'LoanDrawdown'],
+                  [/LoanInitialDrawdown/gi, 'LoanDrawdown'],
+                  [/Drawndown/gi, 'Drawdown']
+                ];
+
+                let normalised = name || '';
+                for (const [pattern, replacement] of legacyNameCorrections) {
+                  normalised = normalised.replace(pattern, replacement);
+                }
+                return normalised;
+              }
+
+              function deriveFallback(name) {
+                if (!name) return '';
+                const normalisedName = normaliseLegacyName(name);
+
+                return normalisedName
+                  .replace(/\.[^.]+$/, '')
+                  .replace(/(?:[._-]?(?:v)?\d+(?:\.\d+)*)$/i, '')
+                  .replace(/([a-z])([A-Z])/g, '$1 $2')
+                  .replace(/[^A-Za-z0-9]+/g, ' ')
+                  .trim()
+                  .split(/\s+/)
+                  .filter(Boolean)
+                  .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+                  .join('');
+              }
+
+              try {
+                const workbook = XLSX.read(fs.readFileSync(filePath), { type: 'buffer' });
+                for (const sheetName of workbook.SheetNames) {
+                  const key = sheetName.trim().toLowerCase().replace(/\s+/g, '');
+                  if (!targetSheets.has(key)) continue;
+
+                  const rows = XLSX.utils.sheet_to_json(workbook.Sheets[sheetName], {
+                    header: 1, defval: ''
+                  });
+
+                  for (let i = 1; i < rows.length; i += 1) {
+                    const entityName = String(rows[i][0] ?? '').trim();
+                    const entityValue = String(rows[i][1] ?? '').trim();
+                    const normalizedLabel = entityName.toLowerCase().replace(/[^a-z0-9]/g, '');
+
+                    if (entityValue && normalizedLabel.includes('entityname')) {
+                      process.stdout.write(normaliseLegacyName(entityValue));
+                      process.exit(0);
+                    }
+                  }
+                }
+              } catch (error) {
+                // Fall through to the filename-based fallback below.
+              }
+
+              const derived = deriveFallback(fallbackName);
+              process.stdout.write(derived || deriveFallback(filePath.split('/').pop() || ''));
+              NODE
+            )
 
             # ── Derive branch slug (lowercase kebab) ─────────────────────────
             BRANCH_SLUG=$(echo "${NAME_NO_EXT}" \

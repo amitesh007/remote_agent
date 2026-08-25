@@ -70,6 +70,20 @@ jobs:
           const TARGET_SHEETS = new Set(['create', 'update', 'getbyid', 'delete']);
           const workbook = XLSX.read(readFileSync(filePath), { type: 'buffer' });
 
+          function normaliseLegacyName(name) {
+            const legacyNameCorrections = [
+              [/LoanInitialDrawndown/gi, 'LoanDrawdown'],
+              [/LoanInitialDrawdown/gi, 'LoanDrawdown'],
+              [/Drawndown/gi, 'Drawdown']
+            ];
+
+            let normalised = name || '';
+            for (const [pattern, replacement] of legacyNameCorrections) {
+              normalised = normalised.replace(pattern, replacement);
+            }
+            return normalised;
+          }
+
           for (const sheetName of workbook.SheetNames) {
             const key = sheetName.trim().toLowerCase().replace(/\s+/g, '');
             if (!TARGET_SHEETS.has(key)) continue;
@@ -78,20 +92,20 @@ jobs:
               header: 1, defval: ''
             });
 
-            // Row index 1 = spreadsheet row 2  (A2 / B2); row 0 is the header.
-            if (rows.length < 2) continue;
+            for (let i = 1; i < rows.length; i += 1) {
+              const entityName = String(rows[i][0] ?? '').trim();
+              const entityValue = String(rows[i][1] ?? '').trim();
+              const normalizedLabel = entityName.toLowerCase().replace(/[^a-z0-9]/g, '');
 
-            const entityName  = String(rows[1][0] ?? '').trim(); // Column A — A2
-            const entityValue = String(rows[1][1] ?? '').trim(); // Column B — B2
-
-            if (entityName && entityValue) {
-              process.stdout.write('ENTITY_NAME=' + entityName + '\n');
-              process.stdout.write('ENTITY_VALUE=' + entityValue + '\n');
-              process.exit(0);
+              if (entityValue && normalizedLabel.includes('entityname')) {
+                process.stdout.write('ENTITY_NAME=' + entityName + '\n');
+                process.stdout.write('ENTITY_VALUE=' + normaliseLegacyName(entityValue) + '\n');
+                process.exit(0);
+              }
             }
           }
 
-          process.stderr.write('No entity data found in A2/B2 of any target sheet.\n');
+          process.stderr.write('No entity data found in any target sheet row with ENTITY_NAME in column A.\n');
           process.exit(1);
           SCRIPT_EOF
 

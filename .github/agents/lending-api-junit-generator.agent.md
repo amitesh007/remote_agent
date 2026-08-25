@@ -56,9 +56,9 @@ Sheets with other names are ignored.
 **Step 2 — Extract entity name from spreadsheet**
 
 Derive the entity name (BusinessObject) from either:
-- The filename (e.g., `Upfront Fee v2.1.xlsx` → `UpfrontFee`)
+- The spreadsheet content first (look for `ENTITY_NAME` in the target worksheet rows, especially `GetByID` / `Delete`), because these sheets often carry the canonical entity value even when the filename is prefixed with a descriptive or historical phrase such as `LoanInitialDrawndown`.
+- The filename as a fallback (e.g., `Upfront Fee v2.1.xlsx` → `UpfrontFee`)
 - The user's prompt if explicitly provided
-- The spreadsheet content (look for a `name` or `businessObject` field)
 
 **Step 3 — Invoke skills sequentially**
 
