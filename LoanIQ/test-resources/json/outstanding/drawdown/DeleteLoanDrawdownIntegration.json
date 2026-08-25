@@ -1,0 +1,12 @@
+{
+  "header": {"appId": "LIQAPI", "isB2B": false},
+  "businessObjectName": "DeleteLoanDrawdownIntegration",
+  "className": "com.misys.liq.api.rest.executable.outstanding.drawdown.LiqAPIDeleteLoanDrawdownIntegration",
+  "groups": [{
+    "groupName": "outstandingTransactionIdentifier",
+    "attributes": [
+      {"attribute": "type", "valueType": "Enum", "value": "transactionId"},
+      {"attribute": "value", "valueType": "String", "value": "{dynamicValue_from_CREATE_response}"}
+    ]
+  }]
+}
