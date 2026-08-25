@@ -112,6 +112,12 @@ jobs:
           echo "Found ${#FILES[@]} Excel file(s):"
           printf '  %s\n' "${FILES[@]}"
 
+          # Counters and summary rows for the final step summary
+          SUMMARY_ROWS=""
+          TOTAL_FILES=${#FILES[@]}
+          CREATED_COUNT=0
+          SKIPPED_COUNT=0
+
           # ── Process each file ───────────────────────────────────────────────
           for FILE_PATH in "${FILES[@]}"; do
             FILENAME=$(basename "${FILE_PATH}")
@@ -143,12 +149,16 @@ jobs:
             # ── STEP 4: Issue is OPEN → agent is still working → skip ────────
             if [ "${OPEN_COUNT}" -gt 0 ]; then
               echo "  Issue already OPEN for '${FILENAME}' — skipping."
+              SUMMARY_ROWS="${SUMMARY_ROWS}\n| ${FILENAME} | — | ⏭️ Skipped (issue already open) | — |"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
               continue
             fi
 
             # ── STEP 5: Issue is CLOSED → already processed → skip ───────────
             if [ "${CLOSED_COUNT}" -gt 0 ]; then
               echo "  Issue already CLOSED for '${FILENAME}' — skipping."
+              SUMMARY_ROWS="${SUMMARY_ROWS}\n| ${FILENAME} | — | ✅ Skipped (already processed) | — |"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
               continue
             fi
 
@@ -167,6 +177,8 @@ jobs:
 
             if [ -z "${ENTITY_VALUE}" ]; then
               echo "  WARNING: ENTITY_VALUE (B2) is blank in '${FILENAME}' — skipping."
+              SUMMARY_ROWS="${SUMMARY_ROWS}\n| ${FILENAME} | — | ⚠️ Skipped (no ENTITY_VALUE in B2) | — |"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
               continue
             fi
 
@@ -195,6 +207,8 @@ jobs:
             ISSUE_NUMBER="${ISSUE_URL##*/}"
 
             echo "  Created issue #${ISSUE_NUMBER}: ${ISSUE_URL}"
+            SUMMARY_ROWS="${SUMMARY_ROWS}\n| ${FILENAME} | ${ENTITY_VALUE} | 🆕 Issue created | [#${ISSUE_NUMBER}](${ISSUE_URL}) |"
+            CREATED_COUNT=$((CREATED_COUNT + 1))
 
             # ── STEP 8: Assign the issue to the Copilot agent ────────────────
             # Assigning to 'copilot' triggers the GitHub Copilot coding agent.
@@ -221,19 +235,13 @@ jobs:
           echo ""
           echo "All files processed."
 
-      - name: Publish job step summary
-        if: always()
-        run: |
+          # ── Write dynamic summary to the GitHub Actions Summary tab ────────
           {
-            echo "## 📋 Job Steps Overview"
+            echo "## 📋 Excel Processing Summary"
             echo ""
-            echo "| # | Step | Description |"
-            echo "|---|------|-------------|"
-            echo "| 1 | **Checkout repository** | Uses \`actions/checkout@v4\` to do a shallow clone of the repo, making the requirement spreadsheet files available on the runner. |"
-            echo "| 2 | **Setup Node.js** | Uses \`actions/setup-node@v4\` to install Node.js v20, required to run the inline JavaScript that reads Excel files. |"
-            echo "| 3 | **Install Node.js dependencies** | Runs \`npm install xlsx\` to install the SheetJS (\`xlsx\`) library used to parse \`.xlsx\` requirement spreadsheets. |"
-            echo "| 4 | **Process Excel files and create agent issues** | Scans the requirement directory for \`.xlsx\` files, checks for duplicate issues, reads entity data (A2/B2), creates a GitHub Issue, and assigns it to the Copilot coding agent. |"
-            echo "| 5 | **Post: Setup Node.js** | Built-in cleanup step injected automatically by \`actions/setup-node@v4\`. Saves the Node.js cache if caching is enabled. |"
-            echo "| 6 | **Post: Checkout repository** | Built-in cleanup step injected automatically by \`actions/checkout@v4\`. Removes temporary Git credentials set up during checkout. |"
-            echo "| 7 | **Complete job** | GitHub-managed step that finalises the runner, uploads logs, and sets the overall job status. |"
+            echo "| File | Entity | Status | Issue |"
+            echo "|------|--------|--------|-------|"
+            echo "${SUMMARY_ROWS}"
+            echo ""
+            echo "**Total:** ${TOTAL_FILES} file(s) — ${CREATED_COUNT} issue(s) created, ${SKIPPED_COUNT} skipped."
           } >> "${GITHUB_STEP_SUMMARY}"
