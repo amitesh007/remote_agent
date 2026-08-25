@@ -214,7 +214,7 @@ jobs:
             if [ -n "${{ secrets.COPILOT_PAT }}" ]; then
               GH_TOKEN="${{ secrets.COPILOT_PAT }}" gh issue edit "${ISSUE_NUMBER}" \
                 --repo "${GITHUB_REPOSITORY}" \
-                --add-assignee "copilot" 2>/dev/null \
+                --add-assignee "copilot-swe-agent[bot]" 2>/dev/null \
                 && echo "  Assigned issue #${ISSUE_NUMBER} to GitHub Copilot agent." \
                 || echo "  WARNING: Could not assign to 'copilot' (Copilot coding agent may not be enabled)."
             else
