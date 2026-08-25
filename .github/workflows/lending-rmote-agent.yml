@@ -174,19 +174,10 @@ jobs:
             echo "  ENTITY_VALUE (B2): ${ENTITY_VALUE}"
 
             # ── STEP 7: Create a new GitHub Issue ────────────────────────────
-            # The issue body contains:
-            #   • The agent reference (Lending API JUnit Generator)
-            #   • ENTITY_NAME value (B2) and the spreadsheet path
-            #   • The agent invocation prompt
+            # The issue body uses the standard agent invocation prompt so Copilot
+            # can pick up the agent and process all four API operations in one shot.
             ISSUE_BODY=$(printf '%s\n' \
-              "agent: Lending API JUnit Generator" \
-              "" \
-              "**Entity name**: \`${ENTITY_VALUE}\`" \
-              "**Specification spreadsheet**: \`${FILE_PATH}\`" \
-              "" \
-              "---" \
-              "" \
-              "\`#lending-delete-api-junit-generator Business Object is '${ENTITY_VALUE}'. [Specification spreadsheet path: '${FILE_PATH}']\`")
+              "@lending-api-junit-generator generate Junit for Create, Update, Query, and Delete APIs for '${ENTITY_VALUE}' using file path - [Specification spreadsheet path: '${FILE_PATH}']")
 
             # Use COPILOT_PAT to create the issue if available (required for
             # assigning to 'copilot'); fall back to GITHUB_TOKEN otherwise.
@@ -229,3 +220,20 @@ jobs:
 
           echo ""
           echo "All files processed."
+
+      - name: Publish job step summary
+        if: always()
+        run: |
+          {
+            echo "## 📋 Job Steps Overview"
+            echo ""
+            echo "| # | Step | Description |"
+            echo "|---|------|-------------|"
+            echo "| 1 | **Checkout repository** | Uses \`actions/checkout@v4\` to do a shallow clone of the repo, making the requirement spreadsheet files available on the runner. |"
+            echo "| 2 | **Setup Node.js** | Uses \`actions/setup-node@v4\` to install Node.js v20, required to run the inline JavaScript that reads Excel files. |"
+            echo "| 3 | **Install Node.js dependencies** | Runs \`npm install xlsx\` to install the SheetJS (\`xlsx\`) library used to parse \`.xlsx\` requirement spreadsheets. |"
+            echo "| 4 | **Process Excel files and create agent issues** | Scans the requirement directory for \`.xlsx\` files, checks for duplicate issues, reads entity data (A2/B2), creates a GitHub Issue, and assigns it to the Copilot coding agent. |"
+            echo "| 5 | **Post: Setup Node.js** | Built-in cleanup step injected automatically by \`actions/setup-node@v4\`. Saves the Node.js cache if caching is enabled. |"
+            echo "| 6 | **Post: Checkout repository** | Built-in cleanup step injected automatically by \`actions/checkout@v4\`. Removes temporary Git credentials set up during checkout. |"
+            echo "| 7 | **Complete job** | GitHub-managed step that finalises the runner, uploads logs, and sets the overall job status. |"
+          } >> "${GITHUB_STEP_SUMMARY}"
