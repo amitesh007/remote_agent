@@ -1,0 +1,7 @@
+{
+  "businessObject": "LoanInterestPayment",
+  "operation": "Create",
+  "sample": true,
+  "statusCode": "PEND",
+  "effectiveDate": "2026-08-25"
+}

@@ -1,0 +1,6 @@
+{
+  "businessObject": "LoanInterestPayment",
+  "operation": "Query",
+  "sample": true,
+  "loanTransactionId": "loan-interest-payment-transaction-id"
+}
