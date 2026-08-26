@@ -24,7 +24,7 @@ public class LiqAPICreateLoanPrincipalPaymentIntegrationTest extends BaseTestLoa
     // Spreadsheet row: 8 — requestedAmount (mandatory validation)
     @Test
     @Order(2)
-    public void testCreatePrincipalPaymentRequiresCoreFields() throws Exception {
+    public void testCreatePrincipalPaymentRequiresRequestedAmount() throws Exception {
         LiqAPICreateLoanPrincipalPaymentIntegration data = LiqApiDataUtil.getObjectFromJson(GeneralIntegrationMapping.CREATE_PRINCIPALPAYMENT_TRANSACTION_INTEGRATION.toString(), LiqAPICreateLoanPrincipalPaymentIntegration.class);
         data.setRequestedAmount(null);
         assertThrows(Exception.class, data::basicValidate);
