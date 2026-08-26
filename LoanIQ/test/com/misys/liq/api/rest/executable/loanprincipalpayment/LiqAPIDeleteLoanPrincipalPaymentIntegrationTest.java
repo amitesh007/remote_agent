@@ -9,9 +9,9 @@ import com.finastra.liq.module.loan.api.*;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class LiqAPIDeleteLoanPrincipalPaymentIntegrationTest extends BaseTestLoanIQ {
+    // Spreadsheet row: 11 — loanTransactionId
     @Test
     @Order(1)
-    // Spreadsheet row: 11 — loanTransactionId
     public void testDeletePrincipalPaymentValid() throws Exception {
         LiqAPICreateLoanPrincipalPaymentIntegration create = LiqApiDataUtil.getObjectFromJson(GeneralIntegrationMapping.CREATE_PRINCIPALPAYMENT_TRANSACTION_INTEGRATION.toString(), LiqAPICreateLoanPrincipalPaymentIntegration.class);
         create.setIdempotencyKey(LiqApiDataUtil.generateIdempotencyKey());
@@ -24,9 +24,9 @@ public class LiqAPIDeleteLoanPrincipalPaymentIntegrationTest extends BaseTestLoa
         assertNotNull(delete.basicExecute());
     }
 
+    // Spreadsheet rows: 14-16 — success / message / updateTimeStamp
     @Test
     @Order(2)
-    // Spreadsheet rows: 14-16 — success / message / updateTimeStamp
     public void testDeletePrincipalPaymentMappings() {
         assertNotNull(LiqAPIDeleteLoanPrincipalPaymentIntegration.clazz.primitiveFieldMappings());
     }

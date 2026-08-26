@@ -9,9 +9,9 @@ import com.finastra.liq.module.loan.api.*;
 
 @TestMethodOrder(MethodOrderer.OrderAnnotation.class)
 public class LiqAPIQueryLoanPrincipalPaymentIntegrationTest extends BaseTestLoanIQ {
+    // Spreadsheet row: 5 — loanTransactionId
     @Test
     @Order(1)
-    // Spreadsheet row: 5 — loanTransactionId
     public void testQueryPrincipalPaymentValid() throws Exception {
         LiqAPICreateLoanPrincipalPaymentIntegration create = LiqApiDataUtil.getObjectFromJson(GeneralIntegrationMapping.CREATE_PRINCIPALPAYMENT_TRANSACTION_INTEGRATION.toString(), LiqAPICreateLoanPrincipalPaymentIntegration.class);
         create.setIdempotencyKey(LiqApiDataUtil.generateIdempotencyKey());
@@ -25,9 +25,9 @@ public class LiqAPIQueryLoanPrincipalPaymentIntegrationTest extends BaseTestLoan
         assertNotNull(output.getUpdateTimeStamp());
     }
 
+    // Spreadsheet rows: 8-25 — response attributes
     @Test
     @Order(2)
-    // Spreadsheet rows: 8-25 — response attributes
     public void testQueryPrincipalPaymentMappings() {
         assertNotNull(LiqAPIQueryLoanPrincipalPaymentIntegration.clazz.primitiveFieldMappings());
     }
