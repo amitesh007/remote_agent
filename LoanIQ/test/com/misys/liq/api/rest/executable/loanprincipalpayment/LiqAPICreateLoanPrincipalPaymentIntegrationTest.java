@@ -21,7 +21,7 @@ public class LiqAPICreateLoanPrincipalPaymentIntegrationTest extends BaseTestLoa
         assertNotNull(output.getLoanTransactionId());
     }
 
-    // Spreadsheet row: 8 — requestedAmount
+    // Spreadsheet row: 8 — requestedAmount (mandatory validation)
     @Test
     @Order(2)
     public void testCreatePrincipalPaymentRequiresCoreFields() throws Exception {

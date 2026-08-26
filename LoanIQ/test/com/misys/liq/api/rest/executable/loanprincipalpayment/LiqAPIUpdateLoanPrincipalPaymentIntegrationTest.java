@@ -17,6 +17,7 @@ public class LiqAPIUpdateLoanPrincipalPaymentIntegrationTest extends BaseTestLoa
         create.setIdempotencyKey(LiqApiDataUtil.generateIdempotencyKey());
         create.basicValidate();
         LiqAPILoanPrincipalPaymentIntegrationAsReturnValue made = (LiqAPILoanPrincipalPaymentIntegrationAsReturnValue) create.basicExecute();
+        assertNotNull(made);
         LoanPrincipalPayment outstanding = (LoanPrincipalPayment) LoanPrincipalPayment.clazz.getForId(made.getLoanTransactionId());
         assertNotNull(outstanding);
         LiqAPIUpdateLoanPrincipalPaymentIntegration update = LiqApiDataUtil.getObjectFromJson(GeneralIntegrationMapping.UPDATE_PRINCIPALPAYMENT_TRANSACTION_INTEGRATION.toString(), LiqAPIUpdateLoanPrincipalPaymentIntegration.class);
