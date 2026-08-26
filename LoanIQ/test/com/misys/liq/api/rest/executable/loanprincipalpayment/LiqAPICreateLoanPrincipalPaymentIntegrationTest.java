@@ -21,19 +21,27 @@ public class LiqAPICreateLoanPrincipalPaymentIntegrationTest extends BaseTestLoa
         assertNotNull(output.getLoanTransactionId());
     }
 
-    // Spreadsheet rows: 8-9 — requestedAmount / effectiveDate
+    // Spreadsheet row: 8 — requestedAmount
     @Test
     @Order(2)
     public void testCreatePrincipalPaymentRequiresCoreFields() throws Exception {
         LiqAPICreateLoanPrincipalPaymentIntegration data = LiqApiDataUtil.getObjectFromJson(GeneralIntegrationMapping.CREATE_PRINCIPALPAYMENT_TRANSACTION_INTEGRATION.toString(), LiqAPICreateLoanPrincipalPaymentIntegration.class);
         data.setRequestedAmount(null);
+        assertThrows(Exception.class, data::basicValidate);
+    }
+
+    // Spreadsheet row: 9 — effectiveDate
+    @Test
+    @Order(3)
+    public void testCreatePrincipalPaymentRequiresEffectiveDate() throws Exception {
+        LiqAPICreateLoanPrincipalPaymentIntegration data = LiqApiDataUtil.getObjectFromJson(GeneralIntegrationMapping.CREATE_PRINCIPALPAYMENT_TRANSACTION_INTEGRATION.toString(), LiqAPICreateLoanPrincipalPaymentIntegration.class);
         data.setEffectiveDate(null);
         assertThrows(Exception.class, data::basicValidate);
     }
 
     // Spreadsheet rows: 13-20 — identifier and optional attributes
     @Test
-    @Order(3)
+    @Order(4)
     public void testCreatePrincipalPaymentMappings() {
         assertNotNull(LiqAPICreateLoanPrincipalPaymentIntegration.clazz.primitiveFieldMappings());
         assertNotNull(LiqAPICreateLoanPrincipalPaymentIntegration.clazz.nonPrimitiveFieldMappings());
