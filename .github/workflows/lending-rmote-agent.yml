@@ -6,6 +6,11 @@ on:
     - cron: '0 */2 * * *'
   # Keep manual trigger available for ad-hoc runs
   workflow_dispatch:
+    inputs:
+      base_branch:
+        description: 'Base branch Copilot should branch from and raise a PR into (e.g. master_7760). Leave blank to use the repo default branch.'
+        required: false
+        default: ''
 
 permissions:
   contents: read   # only needs read — no git pushes in this workflow
@@ -14,6 +19,10 @@ permissions:
 env:
   # Directory that contains the requirement Excel files
   REQ_DIR: IntegrationAPITool/artifacts/requirement_doc
+  # Target base branch that Copilot should branch from and PR into.
+  # Set at workflow dispatch time via the 'base_branch' input.
+  # Leave blank (or omit the input) to let Copilot default to the repo's default branch.
+  BASE_BRANCH: ${{ inputs.base_branch }}
 
 jobs:
   process-spreadsheets:
@@ -188,8 +197,15 @@ jobs:
             # ── STEP 7: Create a new GitHub Issue ────────────────────────────
             # The issue body uses the standard agent invocation prompt so Copilot
             # can pick up the agent and process all four API operations in one shot.
+            # The "base_branch" line tells the Copilot coding agent which branch to
+            # branch from and open a PR into instead of the repo default branch.
+            if [ -n "${BASE_BRANCH}" ]; then
+              BRANCH_HINT=$'\n\n> **base_branch:** '"${BASE_BRANCH}"
+            else
+              BRANCH_HINT=""
+            fi
             ISSUE_BODY=$(printf '%s\n' \
-              "@lending-api-junit-generator generate Junit for Create, Update, Query, and Delete APIs for '${ENTITY_VALUE}' using file path - [Specification spreadsheet path: '${FILE_PATH}']")
+              "@lending-api-junit-generator generate Junit for Create, Update, Query, and Delete APIs for '${ENTITY_VALUE}' using file path - [Specification spreadsheet path: '${FILE_PATH}']${BRANCH_HINT}")
 
             # Use COPILOT_PAT to create the issue if available (required for
             # assigning to 'copilot'); fall back to GITHUB_TOKEN otherwise.
