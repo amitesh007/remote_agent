@@ -22,11 +22,7 @@ public class LiqAPIDeleteLoanPrincipalPaymentIntegrationTest extends BaseTestLoa
         delete.getOutstandingTransactionIdentifier().setIdentifierValue(made.getLoanTransactionId());
         delete.basicValidate();
         assertNotNull(delete.basicExecute());
-        try {
-            assertNull(LoanPrincipalPayment.clazz.getForId(made.getLoanTransactionId()));
-        } catch (Exception expected) {
-            // A deleted transaction may be reported as not found by the domain API.
-        }
+        assertNull(LoanPrincipalPayment.clazz.getForId(made.getLoanTransactionId()));
     }
 
     // Spreadsheet rows: 14-16 — success / message / updateTimeStamp

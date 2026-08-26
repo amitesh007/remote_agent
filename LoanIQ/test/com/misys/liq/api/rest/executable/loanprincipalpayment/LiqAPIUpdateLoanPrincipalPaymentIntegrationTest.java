@@ -18,6 +18,7 @@ public class LiqAPIUpdateLoanPrincipalPaymentIntegrationTest extends BaseTestLoa
         create.basicValidate();
         LiqAPILoanPrincipalPaymentIntegrationAsReturnValue made = (LiqAPILoanPrincipalPaymentIntegrationAsReturnValue) create.basicExecute();
         LoanPrincipalPayment outstanding = (LoanPrincipalPayment) LoanPrincipalPayment.clazz.getForId(made.getLoanTransactionId());
+        assertNotNull(outstanding);
         LiqAPIUpdateLoanPrincipalPaymentIntegration update = LiqApiDataUtil.getObjectFromJson(GeneralIntegrationMapping.UPDATE_PRINCIPALPAYMENT_TRANSACTION_INTEGRATION.toString(), LiqAPIUpdateLoanPrincipalPaymentIntegration.class);
         update.loanTransactionId = made.getLoanTransactionId();
         update.outstandingTran = outstanding;
