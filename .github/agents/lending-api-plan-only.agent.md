@@ -1,8 +1,48 @@
 ---
 name: 'Lending API Plan Only'
 description: 'Produces a deterministic implementation plan for LoanIQ lending REST API work from an Excel sheet and ENTITY_NAME. Generates one markdown plan artifact in IntegrationAPITool/artifacts/temp_generated_class. JIRA story number is optional.'
-tools: ['read/readFile','search/codebase','edit/createFile','edit/editFiles']
-model: 'claude-sonnet-4.6'
+tools: ['read/readFile','search/codebase','edit/createFile','edit/editFiles','web/fetch',
+  'mcp__jira-cloud__getAccessibleAtlassianResources',
+  'mcp__jira-cloud__getJiraIssue',
+  'mcp__jira-cloud__searchJiraIssuesUsingJql',
+  'mcp__jira-cloud__addOrEditJiraIssueComment',
+  'mcp__jira-cloud__editJiraIssue',
+  'mcp__jira-cloud__discover',
+  'mcp__jira-cloud__executeRead',
+  'mcp__jira-cloud__executeWrite',
+  'jira-cloud/getAccessibleAtlassianResources',
+  'jira-cloud/getJiraIssue',
+  'jira-cloud/searchJiraIssuesUsingJql',
+  'jira-cloud/addOrEditJiraIssueComment',
+  'jira-cloud/editJiraIssue',
+  'jira-cloud/discover',
+  'jira-cloud/executeRead',
+  'jira-cloud/executeWrite',
+  'mcp__jira__jira_get_issue',
+  'mcp__jira__jira_search_issues',
+  'mcp__jira__jira_list_attachments',
+  'mcp__jira__jira_download_attachment',
+  'mcp__jira__jira_add_comment',
+  'mcp__jira__jira_update_issue',
+  'mcp__jira__jira_get_transitions',
+  'mcp__jira__jira_transition_issue',
+  'jira/jira_get_issue',
+  'jira/jira_search_issues',
+  'jira/jira_list_attachments',
+  'jira/jira_download_attachment',
+  'jira/jira_add_comment',
+  'jira/jira_update_issue',
+  'jira/jira_get_transitions',
+  'jira/jira_transition_issue',
+  'mcp__figma__get_metadata',
+  'mcp__figma__get_design_context',
+  'mcp__figma__get_screenshot',
+  'mcp__figma__get_figma_data',
+  'mcp__figma__download_figma_images',
+  'figma/get_figma_data',
+  'figma/download_figma_images',
+  'manage_todo_list']
+model: 'Claude Sonnet 5'
 ---
 
 # Lending API Plan-Only Agent
