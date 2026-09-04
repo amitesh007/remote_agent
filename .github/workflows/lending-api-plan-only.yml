@@ -180,7 +180,7 @@ jobs:
             'Instructions:',
             '- Generate the plan markdown artifact under IntegrationAPITool/artifacts/temp_generated_class',
             '- Use the naming pattern lending-api-plan-<ENTITY_NAME>-<JIRA_OR_NO-JIRA>.md',
-            `- Attach the generated plan document to JIRA story ${jiraStory}`,
+            `- Attach the generated plan document to JIRA story ${jiraStory} using the JIRA MCP`,
             '- Do not modify repository source code',
             '- Do not run compile or test commands',
             '- Do not create a pull request',
@@ -237,104 +237,104 @@ jobs:
           ENTITY_NAME: ${{ steps.resolve.outputs.entity_name }}
           JIRA_STORY: ${{ steps.resolve.outputs.jira_story_number }}
 
-  attach-plan-to-jira:
-    name: Wait for generated plan document and attach it to the JIRA story
-    needs: invoke-plan-agent
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-
-      # Poll for the deterministic plan markdown file produced by the
-      # Lending API Plan Only agent, then upload it as an attachment on the
-      # JIRA story via the JIRA REST API.
-      - name: Detect plan artifact and attach to JIRA
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const path = require('path');
-          const { execSync } = require('child_process');
-
-          const entityName = process.env.ENTITY_NAME || '';
-          const jiraStory = process.env.JIRA_STORY || '';
-          const jiraBaseUrl = process.env.JIRA_BASE_URL || '';
-          const jiraUser = process.env.JIRA_USER_EMAIL || '';
-          const jiraToken = process.env.JIRA_API_TOKEN || '';
-
-          if (!entityName || !jiraStory) {
-            console.error('Missing entity name or JIRA story number.');
-            process.exit(1);
-          }
-
-          const artifactDir = path.join('IntegrationAPITool', 'artifacts', 'temp_generated_class');
-          const expectedFile = `lending-api-plan-${entityName}-${jiraStory}.md`;
-          const expectedPath = path.join(artifactDir, expectedFile);
-
-          const sleepMs = (ms) => {
-            const end = Date.now() + ms;
-            while (Date.now() < end) { /* busy wait between polls */ }
-          };
-
-          let foundPath = '';
-          const maxAttempts = 60; // 60 * 30s = 30 minutes
-          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-            if (fs.existsSync(expectedPath)) {
-              foundPath = expectedPath;
-              break;
-            }
-            if (fs.existsSync(artifactDir)) {
-              const match = fs.readdirSync(artifactDir)
-                .find((f) => f.startsWith(`lending-api-plan-${entityName}-`) && f.endsWith('.md'));
-              if (match) {
-                foundPath = path.join(artifactDir, match);
-                break;
-              }
-            }
-            console.log(`Waiting for plan artifact (attempt ${attempt}/${maxAttempts}): ${expectedPath}`);
-            sleepMs(30000);
-          }
-
-          if (!foundPath) {
-            console.error(`Plan artifact was not created within the timeout: ${expectedPath}`);
-            process.exit(1);
-          }
-
-          console.log(`Detected plan artifact: ${foundPath}`);
-          fs.appendFileSync(process.env.GITHUB_OUTPUT, `plan_path=${foundPath}\n`);
-
-          if (!jiraBaseUrl || !jiraUser || !jiraToken) {
-            console.log('JIRA secrets are not configured; skipping attachment upload.');
-            process.exit(0);
-          }
-
-          try {
-            const cmd = [
-              'curl', '-sS', '-f',
-              '-u', `${jiraUser}:${jiraToken}`,
-              '-X', 'POST',
-              '-H', 'Accept: application/json',
-              '-H', 'X-Atlassian-Token: no-check',
-              '-F', `file=@${foundPath}`,
-              `${jiraBaseUrl}/rest/api/3/issue/${jiraStory}/attachments`
-            ].join(' ');
-            const result = execSync(cmd, { stdio: ['ignore', 'pipe', 'pipe'] });
-            console.log(`Attachment uploaded to JIRA story ${jiraStory}`);
-            console.log(result.toString());
-          } catch (error) {
-            const stdout = error.stdout ? error.stdout.toString() : '';
-            const stderr = error.stderr ? error.stderr.toString() : '';
-            console.error(stderr || stdout || 'JIRA attachment upload failed.');
-            process.exit(1);
-          }
-          NODE
-        env:
-          ENTITY_NAME: ${{ needs.invoke-plan-agent.outputs.entity_name }}
-          JIRA_STORY: ${{ needs.invoke-plan-agent.outputs.jira_story_number }}
-          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+  # attach-plan-to-jira:
+  #   name: Wait for generated plan document and attach it to the JIRA story
+  #   needs: invoke-plan-agent
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - name: Checkout repository
+  #       uses: actions/checkout@v4
+  #
+  #     - name: Setup Node.js
+  #       uses: actions/setup-node@v4
+  #       with:
+  #         node-version: '20'
+  #
+  #     # Poll for the deterministic plan markdown file produced by the
+  #     # Lending API Plan Only agent, then upload it as an attachment on the
+  #     # JIRA story via the JIRA REST API.
+  #     - name: Detect plan artifact and attach to JIRA
+  #       run: |
+  #         node <<'NODE'
+  #         const fs = require('fs');
+  #         const path = require('path');
+  #         const { execSync } = require('child_process');
+  #
+  #         const entityName = process.env.ENTITY_NAME || '';
+  #         const jiraStory = process.env.JIRA_STORY || '';
+  #         const jiraBaseUrl = process.env.JIRA_BASE_URL || '';
+  #         const jiraUser = process.env.JIRA_USER_EMAIL || '';
+  #         const jiraToken = process.env.JIRA_API_TOKEN || '';
+  #
+  #         if (!entityName || !jiraStory) {
+  #           console.error('Missing entity name or JIRA story number.');
+  #           process.exit(1);
+  #         }
+  #
+  #         const artifactDir = path.join('IntegrationAPITool', 'artifacts', 'temp_generated_class');
+  #         const expectedFile = `lending-api-plan-${entityName}-${jiraStory}.md`;
+  #         const expectedPath = path.join(artifactDir, expectedFile);
+  #
+  #         const sleepMs = (ms) => {
+  #           const end = Date.now() + ms;
+  #           while (Date.now() < end) { /* busy wait between polls */ }
+  #         };
+  #
+  #         let foundPath = '';
+  #         const maxAttempts = 60; // 60 * 30s = 30 minutes
+  #         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+  #           if (fs.existsSync(expectedPath)) {
+  #             foundPath = expectedPath;
+  #             break;
+  #           }
+  #           if (fs.existsSync(artifactDir)) {
+  #             const match = fs.readdirSync(artifactDir)
+  #               .find((f) => f.startsWith(`lending-api-plan-${entityName}-`) && f.endsWith('.md'));
+  #             if (match) {
+  #               foundPath = path.join(artifactDir, match);
+  #               break;
+  #             }
+  #           }
+  #           console.log(`Waiting for plan artifact (attempt ${attempt}/${maxAttempts}): ${expectedPath}`);
+  #           sleepMs(30000);
+  #         }
+  #
+  #         if (!foundPath) {
+  #           console.error(`Plan artifact was not created within the timeout: ${expectedPath}`);
+  #           process.exit(1);
+  #         }
+  #
+  #         console.log(`Detected plan artifact: ${foundPath}`);
+  #         fs.appendFileSync(process.env.GITHUB_OUTPUT, `plan_path=${foundPath}\n`);
+  #
+  #         if (!jiraBaseUrl || !jiraUser || !jiraToken) {
+  #           console.log('JIRA secrets are not configured; skipping attachment upload.');
+  #           process.exit(0);
+  #         }
+  #
+  #         try {
+  #           const cmd = [
+  #             'curl', '-sS', '-f',
+  #             '-u', `${jiraUser}:${jiraToken}`,
+  #             '-X', 'POST',
+  #             '-H', 'Accept: application/json',
+  #             '-H', 'X-Atlassian-Token: no-check',
+  #             '-F', `file=@${foundPath}`,
+  #             `${jiraBaseUrl}/rest/api/3/issue/${jiraStory}/attachments`
+  #           ].join(' ');
+  #           const result = execSync(cmd, { stdio: ['ignore', 'pipe', 'pipe'] });
+  #           console.log(`Attachment uploaded to JIRA story ${jiraStory}`);
+  #           console.log(result.toString());
+  #         } catch (error) {
+  #           const stdout = error.stdout ? error.stdout.toString() : '';
+  #           const stderr = error.stderr ? error.stderr.toString() : '';
+  #           console.error(stderr || stdout || 'JIRA attachment upload failed.');
+  #           process.exit(1);
+  #         }
+  #         NODE
+  #       env:
+  #         ENTITY_NAME: ${{ needs.invoke-plan-agent.outputs.entity_name }}
+  #         JIRA_STORY: ${{ needs.invoke-plan-agent.outputs.jira_story_number }}
+  #         JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+  #         JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+  #         JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
