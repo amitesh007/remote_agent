@@ -44,7 +44,7 @@ tools: ['read/readFile','search/codebase','edit/createFile','edit/editFiles','we
   'figma/get_figma_data',
   'figma/download_figma_images',
   'manage_todo_list']
-  mcp-servers:
+mcp-servers:
   figma:
     type: 'local'
     command: 'figma-developer-mcp'
