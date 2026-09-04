@@ -272,8 +272,8 @@ jobs:
 
           const entityName = process.env.ENTITY_NAME || '';
           const jiraStory = process.env.JIRA_STORY || '';
-          const jiraDcUrl = process.env.JIRA_DC_URL || '';
-          const jiraDcPat = process.env.JIRA_DC_PAT || '';
+          const jiraDcUrl = process.env.COPILOT_MCP_JIRA_DC_URL || '';
+          const jiraDcPat = process.env.COPILOT_MCP_JIRA_DC_PAT || '';
 
           if (!entityName || !jiraStory) {
             console.error('Missing entity name or JIRA story number.');
@@ -317,7 +317,7 @@ jobs:
           fs.appendFileSync(process.env.GITHUB_OUTPUT, `plan_path=${foundPath}\n`);
 
           if (!jiraDcUrl || !jiraDcPat) {
-            console.log('JIRA_DC_URL/JIRA_DC_PAT are not configured; skipping local JIRA MCP attachment.');
+            console.log('COPILOT_MCP_JIRA_DC_URL/COPILOT_MCP_JIRA_DC_PAT are not configured; skipping local JIRA MCP attachment.');
             process.exit(0);
           }
 
