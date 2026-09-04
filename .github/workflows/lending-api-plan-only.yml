@@ -272,8 +272,8 @@ jobs:
 
           const entityName = process.env.ENTITY_NAME || '';
           const jiraStory = process.env.JIRA_STORY || '';
-          const jiraDcUrl = ${{ secrets.COPILOT_MCP_JIRA_DC_URL }} || '';
-          const jiraDcPat = ${{ secrets.COPILOT_MCP_JIRA_DC_PAT }} || '';
+          const jiraDcUrl = process.env.COPILOT_MCP_JIRA_DC_URL || '';
+          const jiraDcPat = process.env.COPILOT_MCP_JIRA_DC_PAT || '';
 
           if (!entityName || !jiraStory) {
             console.error('Missing entity name or JIRA story number.');
