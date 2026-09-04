@@ -180,7 +180,7 @@ jobs:
             'Instructions:',
             '- Generate the plan markdown artifact under IntegrationAPITool/artifacts/temp_generated_class',
             '- Use the naming pattern lending-api-plan-<ENTITY_NAME>-<JIRA_OR_NO-JIRA>.md',
-            `- Use the JIRA MCP Server to attach the generated plan document to JIRA story ${jiraStory}`,
+            `- Attach the generated plan document to JIRA story ${jiraStory}`,
             '- Do not modify repository source code',
             '- Do not run compile or test commands',
             '- Do not create a pull request',
