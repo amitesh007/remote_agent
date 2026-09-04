@@ -427,5 +427,5 @@ jobs:
         env:
           ENTITY_NAME: ${{ needs.invoke-plan-agent.outputs.entity_name }}
           JIRA_STORY: ${{ needs.invoke-plan-agent.outputs.jira_story_number }}
-          JIRA_DC_URL: ${{ secrets.JIRA_DC_URL }}
-          JIRA_DC_PAT: ${{ secrets.JIRA_DC_PAT }}
+          JIRA_DC_URL: ${{ secrets.COPILOT_MCP_JIRA_DC_URL }}
+          JIRA_DC_PAT: ${{ secrets.COPILOT_MCP_JIRA_DC_PAT }}
