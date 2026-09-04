@@ -200,8 +200,7 @@ jobs:
               'issue', 'create',
               '--repo', repo,
               '--title', JSON.stringify(issueTitle),
-              '--body', JSON.stringify(issueBody),
-              '--label', 'plan-generated'
+              '--body', JSON.stringify(issueBody)
             ], createToken);
           } catch (error) {
             console.error((error.stderr && error.stderr.toString()) || error.message);
