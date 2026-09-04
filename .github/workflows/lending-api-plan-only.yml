@@ -237,104 +237,195 @@ jobs:
           ENTITY_NAME: ${{ steps.resolve.outputs.entity_name }}
           JIRA_STORY: ${{ steps.resolve.outputs.jira_story_number }}
 
-  # attach-plan-to-jira:
-  #   name: Wait for generated plan document and attach it to the JIRA story
-  #   needs: invoke-plan-agent
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout repository
-  #       uses: actions/checkout@v4
-  #
-  #     - name: Setup Node.js
-  #       uses: actions/setup-node@v4
-  #       with:
-  #         node-version: '20'
-  #
-  #     # Poll for the deterministic plan markdown file produced by the
-  #     # Lending API Plan Only agent, then upload it as an attachment on the
-  #     # JIRA story via the JIRA REST API.
-  #     - name: Detect plan artifact and attach to JIRA
-  #       run: |
-  #         node <<'NODE'
-  #         const fs = require('fs');
-  #         const path = require('path');
-  #         const { execSync } = require('child_process');
-  #
-  #         const entityName = process.env.ENTITY_NAME || '';
-  #         const jiraStory = process.env.JIRA_STORY || '';
-  #         const jiraBaseUrl = process.env.JIRA_BASE_URL || '';
-  #         const jiraUser = process.env.JIRA_USER_EMAIL || '';
-  #         const jiraToken = process.env.JIRA_API_TOKEN || '';
-  #
-  #         if (!entityName || !jiraStory) {
-  #           console.error('Missing entity name or JIRA story number.');
-  #           process.exit(1);
-  #         }
-  #
-  #         const artifactDir = path.join('IntegrationAPITool', 'artifacts', 'temp_generated_class');
-  #         const expectedFile = `lending-api-plan-${entityName}-${jiraStory}.md`;
-  #         const expectedPath = path.join(artifactDir, expectedFile);
-  #
-  #         const sleepMs = (ms) => {
-  #           const end = Date.now() + ms;
-  #           while (Date.now() < end) { /* busy wait between polls */ }
-  #         };
-  #
-  #         let foundPath = '';
-  #         const maxAttempts = 60; // 60 * 30s = 30 minutes
-  #         for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-  #           if (fs.existsSync(expectedPath)) {
-  #             foundPath = expectedPath;
-  #             break;
-  #           }
-  #           if (fs.existsSync(artifactDir)) {
-  #             const match = fs.readdirSync(artifactDir)
-  #               .find((f) => f.startsWith(`lending-api-plan-${entityName}-`) && f.endsWith('.md'));
-  #             if (match) {
-  #               foundPath = path.join(artifactDir, match);
-  #               break;
-  #             }
-  #           }
-  #           console.log(`Waiting for plan artifact (attempt ${attempt}/${maxAttempts}): ${expectedPath}`);
-  #           sleepMs(30000);
-  #         }
-  #
-  #         if (!foundPath) {
-  #           console.error(`Plan artifact was not created within the timeout: ${expectedPath}`);
-  #           process.exit(1);
-  #         }
-  #
-  #         console.log(`Detected plan artifact: ${foundPath}`);
-  #         fs.appendFileSync(process.env.GITHUB_OUTPUT, `plan_path=${foundPath}\n`);
-  #
-  #         if (!jiraBaseUrl || !jiraUser || !jiraToken) {
-  #           console.log('JIRA secrets are not configured; skipping attachment upload.');
-  #           process.exit(0);
-  #         }
-  #
-  #         try {
-  #           const cmd = [
-  #             'curl', '-sS', '-f',
-  #             '-u', `${jiraUser}:${jiraToken}`,
-  #             '-X', 'POST',
-  #             '-H', 'Accept: application/json',
-  #             '-H', 'X-Atlassian-Token: no-check',
-  #             '-F', `file=@${foundPath}`,
-  #             `${jiraBaseUrl}/rest/api/3/issue/${jiraStory}/attachments`
-  #           ].join(' ');
-  #           const result = execSync(cmd, { stdio: ['ignore', 'pipe', 'pipe'] });
-  #           console.log(`Attachment uploaded to JIRA story ${jiraStory}`);
-  #           console.log(result.toString());
-  #         } catch (error) {
-  #           const stdout = error.stdout ? error.stdout.toString() : '';
-  #           const stderr = error.stderr ? error.stderr.toString() : '';
-  #           console.error(stderr || stdout || 'JIRA attachment upload failed.');
-  #           process.exit(1);
-  #         }
-  #         NODE
-  #       env:
-  #         ENTITY_NAME: ${{ needs.invoke-plan-agent.outputs.entity_name }}
-  #         JIRA_STORY: ${{ needs.invoke-plan-agent.outputs.jira_story_number }}
-  #         JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
-  #         JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
-  #         JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
+  attach-plan-to-jira:
+    name: Wait for generated plan document and attach it to the JIRA story via the local JIRA MCP server
+    needs: invoke-plan-agent
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Install the bundled local JIRA MCP server (Data Center), the same
+      # package the Lending API Plan Only agent provisions via its
+      # SessionStart hook, so this job can talk to JIRA Data Center the
+      # same way the agent does (not the JIRA Cloud REST API).
+      - name: Install local JIRA MCP server
+        run: |
+          npm install -g ./liqweb-mcp-server-jira-1.4.0.tgz
+          command -v mcp-server-jira
+
+      # Poll for the deterministic plan markdown file produced by the
+      # Lending API Plan Only agent, then connect to the local mcp-server-jira
+      # (JIRA Data Center) over its MCP stdio transport and call
+      # jira_add_attachment to attach the file to the JIRA story.
+      - name: Detect plan artifact and attach via local JIRA MCP server
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const { spawn } = require('child_process');
+
+          const entityName = process.env.ENTITY_NAME || '';
+          const jiraStory = process.env.JIRA_STORY || '';
+          const jiraDcUrl = process.env.JIRA_DC_URL || '';
+          const jiraDcPat = process.env.JIRA_DC_PAT || '';
+
+          if (!entityName || !jiraStory) {
+            console.error('Missing entity name or JIRA story number.');
+            process.exit(1);
+          }
+
+          const artifactDir = path.join('IntegrationAPITool', 'artifacts', 'temp_generated_class');
+          const expectedFile = `lending-api-plan-${entityName}-${jiraStory}.md`;
+          const expectedPath = path.join(artifactDir, expectedFile);
+
+          const sleepMs = (ms) => {
+            const end = Date.now() + ms;
+            while (Date.now() < end) { /* busy wait between polls */ }
+          };
+
+          let foundPath = '';
+          const maxAttempts = 60; // 60 * 30s = 30 minutes
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            if (fs.existsSync(expectedPath)) {
+              foundPath = expectedPath;
+              break;
+            }
+            if (fs.existsSync(artifactDir)) {
+              const match = fs.readdirSync(artifactDir)
+                .find((f) => f.startsWith(`lending-api-plan-${entityName}-`) && f.endsWith('.md'));
+              if (match) {
+                foundPath = path.join(artifactDir, match);
+                break;
+              }
+            }
+            console.log(`Waiting for plan artifact (attempt ${attempt}/${maxAttempts}): ${expectedPath}`);
+            sleepMs(30000);
+          }
+
+          if (!foundPath) {
+            console.error(`Plan artifact was not created within the timeout: ${expectedPath}`);
+            process.exit(1);
+          }
+
+          console.log(`Detected plan artifact: ${foundPath}`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `plan_path=${foundPath}\n`);
+
+          if (!jiraDcUrl || !jiraDcPat) {
+            console.log('JIRA_DC_URL/JIRA_DC_PAT are not configured; skipping local JIRA MCP attachment.');
+            process.exit(0);
+          }
+
+          // Minimal MCP stdio JSON-RPC client (Content-Length framed, per the
+          // MCP stdio transport spec) used to talk to mcp-server-jira.
+          function createMcpClient(command, args, env) {
+            const child = spawn(command, args, {
+              env: { ...process.env, ...env },
+              stdio: ['pipe', 'pipe', 'pipe']
+            });
+            let buffer = Buffer.alloc(0);
+            const pending = new Map();
+            let nextId = 1;
+
+            child.stderr.on('data', (d) => process.stderr.write(`[mcp-server-jira] ${d}`));
+
+            child.stdout.on('data', (chunk) => {
+              buffer = Buffer.concat([buffer, chunk]);
+              for (;;) {
+                const headerEnd = buffer.indexOf('\r\n\r\n');
+                if (headerEnd === -1) break;
+                const header = buffer.slice(0, headerEnd).toString('utf8');
+                const match = /Content-Length:\s*(\d+)/i.exec(header);
+                if (!match) { buffer = buffer.slice(headerEnd + 4); continue; }
+                const length = parseInt(match[1], 10);
+                const bodyStart = headerEnd + 4;
+                if (buffer.length < bodyStart + length) break;
+                const body = buffer.slice(bodyStart, bodyStart + length).toString('utf8');
+                buffer = buffer.slice(bodyStart + length);
+                try {
+                  const msg = JSON.parse(body);
+                  if (msg.id !== undefined && pending.has(msg.id)) {
+                    const { resolve, reject } = pending.get(msg.id);
+                    pending.delete(msg.id);
+                    if (msg.error) reject(new Error(msg.error.message || JSON.stringify(msg.error)));
+                    else resolve(msg.result);
+                  }
+                } catch (error) {
+                  // Ignore malformed/partial frames (e.g. log notifications).
+                }
+              }
+            });
+
+            function send(method, params, isNotification) {
+              return new Promise((resolve, reject) => {
+                const id = isNotification ? undefined : nextId++;
+                const payload = { jsonrpc: '2.0', method, params };
+                if (id !== undefined) payload.id = id;
+                const json = JSON.stringify(payload);
+                const message = `Content-Length: ${Buffer.byteLength(json, 'utf8')}\r\n\r\n${json}`;
+                if (id !== undefined) pending.set(id, { resolve, reject });
+                child.stdin.write(message, 'utf8');
+                if (id === undefined) resolve();
+              });
+            }
+
+            return { child, send };
+          }
+
+          (async () => {
+            const { child, send } = createMcpClient('mcp-server-jira', [], {
+              JIRA_URL: jiraDcUrl,
+              JIRA_PAT: jiraDcPat,
+              JIRA_AUTH_TYPE: 'bearer'
+            });
+
+            try {
+              await send('initialize', {
+                protocolVersion: '2024-11-05',
+                capabilities: {},
+                clientInfo: { name: 'lending-api-plan-only-workflow', version: '1.0.0' }
+              });
+              await send('notifications/initialized', {}, true);
+
+              const toolsResult = await send('tools/list', {});
+              const attachTool = (toolsResult.tools || []).find((t) => t.name === 'jira_add_attachment');
+              if (!attachTool) {
+                throw new Error('jira_add_attachment tool not found on local JIRA MCP server');
+              }
+
+              // Map the discovered tool schema to arguments defensively;
+              // verify against the mcp-server-jira tool schema if this fails.
+              const props = (attachTool.inputSchema && attachTool.inputSchema.properties) || {};
+              const args = {};
+              for (const key of Object.keys(props)) {
+                const lower = key.toLowerCase();
+                if (lower.includes('issue') || lower.includes('key')) args[key] = jiraStory;
+                else if (lower.includes('file') || lower.includes('path') || lower.includes('attachment')) args[key] = path.resolve(foundPath);
+              }
+
+              const callResult = await send('tools/call', { name: 'jira_add_attachment', arguments: args });
+              if (callResult && callResult.isError) {
+                throw new Error(JSON.stringify(callResult.content || callResult));
+              }
+
+              console.log(`Attachment uploaded to JIRA story ${jiraStory} via local JIRA MCP server`);
+              console.log(JSON.stringify(callResult));
+            } catch (error) {
+              console.error(`JIRA MCP attachment failed: ${error.message || error}`);
+              process.exitCode = 1;
+            } finally {
+              child.stdin.end();
+              child.kill();
+            }
+          })();
+          NODE
+        env:
+          ENTITY_NAME: ${{ needs.invoke-plan-agent.outputs.entity_name }}
+          JIRA_STORY: ${{ needs.invoke-plan-agent.outputs.jira_story_number }}
+          JIRA_DC_URL: ${{ secrets.JIRA_DC_URL }}
+          JIRA_DC_PAT: ${{ secrets.JIRA_DC_PAT }}
