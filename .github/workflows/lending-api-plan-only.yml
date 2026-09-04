@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       excel_path:
-        description: Absolute path to the Excel requirement file
+        description: Excel requirement file path or filename (resolved from IntegrationAPITool/artifacts/requirement_doc when not absolute)
         required: true
         type: string
       entity_name:
@@ -53,6 +53,7 @@ jobs:
         run: |
           node <<'NODE'
           const fs = require('fs');
+          const path = require('path');
 
           const eventName = process.env.EVENT_NAME || '';
           const rawPayload = process.env.DISPATCH_PAYLOAD || '';
@@ -89,12 +90,28 @@ jobs:
             process.exit(1);
           }
 
+          const requirementDir = path.join(process.cwd(), 'IntegrationAPITool', 'artifacts', 'requirement_doc');
+          const normalizedInput = String(excelPath).trim();
+          let resolvedExcelPath = normalizedInput;
+
+          if (!fs.existsSync(resolvedExcelPath)) {
+            const unixNormalized = normalizedInput.replace(/\\/g, '/');
+            const leafName = path.basename(unixNormalized);
+
+            const candidates = [
+              path.join(requirementDir, unixNormalized.replace(/^\/+/, '')),
+              path.join(requirementDir, leafName)
+            ];
+
+            resolvedExcelPath = candidates.find((candidate) => fs.existsSync(candidate)) || normalizedInput;
+          }
+
           const out = process.env.GITHUB_OUTPUT;
-          fs.appendFileSync(out, `excel_path=${excelPath}\n`);
+          fs.appendFileSync(out, `excel_path=${resolvedExcelPath}\n`);
           fs.appendFileSync(out, `entity_name=${entityName}\n`);
           fs.appendFileSync(out, `jira_story_number=${jiraStory}\n`);
 
-          console.log(`Resolved excel_path=${excelPath}`);
+          console.log(`Resolved excel_path=${resolvedExcelPath}`);
           console.log(`Resolved entity_name=${entityName}`);
           console.log(`Resolved jira_story_number=${jiraStory}`);
           NODE
