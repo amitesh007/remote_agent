@@ -6,6 +6,11 @@ on:
     - cron: '0 */2 * * *'
   # Keep manual trigger available for ad-hoc runs
   workflow_dispatch:
+    inputs:
+      base_branch:
+        description: 'Base branch Copilot should branch from and raise a PR into (e.g. master_7760). Leave blank to use the repo default branch.'
+        required: false
+        default: ''
 
 permissions:
   contents: read   # only needs read — no git pushes in this workflow
@@ -14,6 +19,10 @@ permissions:
 env:
   # Directory that contains the requirement Excel files
   REQ_DIR: IntegrationAPITool/artifacts/requirement_doc
+  # Target base branch that Copilot should branch from and PR into.
+  # Set at workflow dispatch time via the 'base_branch' input.
+  # Leave blank (or omit the input) to let Copilot default to the repo's default branch.
+  BASE_BRANCH: ${{ inputs.base_branch }}
 
 jobs:
   process-spreadsheets:
@@ -112,6 +121,12 @@ jobs:
           echo "Found ${#FILES[@]} Excel file(s):"
           printf '  %s\n' "${FILES[@]}"
 
+          # Counters and summary rows for the final step summary
+          SUMMARY_ROWS=""
+          TOTAL_FILES=${#FILES[@]}
+          CREATED_COUNT=0
+          SKIPPED_COUNT=0
+
           # ── Process each file ───────────────────────────────────────────────
           for FILE_PATH in "${FILES[@]}"; do
             FILENAME=$(basename "${FILE_PATH}")
@@ -143,12 +158,16 @@ jobs:
             # ── STEP 4: Issue is OPEN → agent is still working → skip ────────
             if [ "${OPEN_COUNT}" -gt 0 ]; then
               echo "  Issue already OPEN for '${FILENAME}' — skipping."
+              SUMMARY_ROWS="${SUMMARY_ROWS}\n| ${FILENAME} | — | ⏭️ Skipped (issue already open) | — |"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
               continue
             fi
 
             # ── STEP 5: Issue is CLOSED → already processed → skip ───────────
             if [ "${CLOSED_COUNT}" -gt 0 ]; then
               echo "  Issue already CLOSED for '${FILENAME}' — skipping."
+              SUMMARY_ROWS="${SUMMARY_ROWS}\n| ${FILENAME} | — | ✅ Skipped (already processed) | — |"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
               continue
             fi
 
@@ -167,6 +186,8 @@ jobs:
 
             if [ -z "${ENTITY_VALUE}" ]; then
               echo "  WARNING: ENTITY_VALUE (B2) is blank in '${FILENAME}' — skipping."
+              SUMMARY_ROWS="${SUMMARY_ROWS}\n| ${FILENAME} | — | ⚠️ Skipped (no ENTITY_VALUE in B2) | — |"
+              SKIPPED_COUNT=$((SKIPPED_COUNT + 1))
               continue
             fi
 
@@ -174,19 +195,17 @@ jobs:
             echo "  ENTITY_VALUE (B2): ${ENTITY_VALUE}"
 
             # ── STEP 7: Create a new GitHub Issue ────────────────────────────
-            # The issue body contains:
-            #   • The agent reference (Lending API JUnit Generator)
-            #   • ENTITY_NAME value (B2) and the spreadsheet path
-            #   • The agent invocation prompt
+            # The issue body uses the standard agent invocation prompt so Copilot
+            # can pick up the agent and process all four API operations in one shot.
+            # The "base_branch" line tells the Copilot coding agent which branch to
+            # branch from and open a PR into instead of the repo default branch.
+            if [ -n "${BASE_BRANCH}" ]; then
+              BRANCH_HINT=$'\n\n> **base_branch:** '"${BASE_BRANCH}"
+            else
+              BRANCH_HINT=""
+            fi
             ISSUE_BODY=$(printf '%s\n' \
-              "agent: Lending API JUnit Generator" \
-              "" \
-              "**Entity name**: \`${ENTITY_VALUE}\`" \
-              "**Specification spreadsheet**: \`${FILE_PATH}\`" \
-              "" \
-              "---" \
-              "" \
-              "\`#lending-delete-api-junit-generator Business Object is '${ENTITY_VALUE}'. [Specification spreadsheet path: '${FILE_PATH}']\`")
+              "@lending-api-junit-generator generate Junit for Create, Update, Query, and Delete APIs for '${ENTITY_VALUE}' using file path - [Specification spreadsheet path: '${FILE_PATH}']${BRANCH_HINT}")
 
             # Use COPILOT_PAT to create the issue if available (required for
             # assigning to 'copilot'); fall back to GITHUB_TOKEN otherwise.
@@ -204,6 +223,8 @@ jobs:
             ISSUE_NUMBER="${ISSUE_URL##*/}"
 
             echo "  Created issue #${ISSUE_NUMBER}: ${ISSUE_URL}"
+            SUMMARY_ROWS="${SUMMARY_ROWS}\n| ${FILENAME} | ${ENTITY_VALUE} | 🆕 Issue created | [#${ISSUE_NUMBER}](${ISSUE_URL}) |"
+            CREATED_COUNT=$((CREATED_COUNT + 1))
 
             # ── STEP 8: Assign the issue to the Copilot agent ────────────────
             # Assigning to 'copilot' triggers the GitHub Copilot coding agent.
@@ -229,3 +250,14 @@ jobs:
 
           echo ""
           echo "All files processed."
+
+          # ── Write dynamic summary to the GitHub Actions Summary tab ────────
+          {
+            echo "## 📋 Excel Processing Summary"
+            echo ""
+            echo "| File | Entity | Status | Issue |"
+            echo "|------|--------|--------|-------|"
+            echo "${SUMMARY_ROWS}"
+            echo ""
+            echo "**Total:** ${TOTAL_FILES} file(s) — ${CREATED_COUNT} issue(s) created, ${SKIPPED_COUNT} skipped."
+          } >> "${GITHUB_STEP_SUMMARY}"
