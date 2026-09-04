@@ -1,4 +1,4 @@
-﻿---
+---
 name: 'Lending API Developer'
 description: 'Deterministic workflow for generating LoanIQ lending REST API classes (Create, Update, Query, Delete) from requirement spreadsheets, including tests, Javadocs, JSON examples, and conflict-safe merge handling.'
 tools: ['edit/createFile','edit/createDirectory','execute/sendToTerminal','search/codebase','edit/editFiles','execute/runInTerminal','read/readFile','github/create_or_update_file']
