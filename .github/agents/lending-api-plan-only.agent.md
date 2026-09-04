@@ -22,6 +22,7 @@ tools: ['read/readFile','search/codebase','edit/createFile','edit/editFiles','we
   'mcp__jira__jira_search_issues',
   'mcp__jira__jira_list_attachments',
   'mcp__jira__jira_download_attachment',
+  'mcp__jira__jira_add_attachment',
   'mcp__jira__jira_add_comment',
   'mcp__jira__jira_update_issue',
   'mcp__jira__jira_get_transitions',
@@ -30,6 +31,7 @@ tools: ['read/readFile','search/codebase','edit/createFile','edit/editFiles','we
   'jira/jira_search_issues',
   'jira/jira_list_attachments',
   'jira/jira_download_attachment',
+  'jira/jira_add_attachment',
   'jira/jira_add_comment',
   'jira/jira_update_issue',
   'jira/jira_get_transitions',
@@ -42,6 +44,49 @@ tools: ['read/readFile','search/codebase','edit/createFile','edit/editFiles','we
   'figma/get_figma_data',
   'figma/download_figma_images',
   'manage_todo_list']
+  mcp-servers:
+  figma:
+    type: 'local'
+    command: 'figma-developer-mcp'
+    args:
+      - '--stdio'
+    env:
+      FIGMA_API_KEY: '$COPILOT_MCP_FIGMA_ACCESS_TOKEN'
+    tools:
+      - 'get_figma_data'
+      - 'download_figma_images'
+  jira-cloud:
+    type: 'http'
+    url: 'https://mcp.atlassian.com/v2/mcp'
+    headers:
+      Authorization: 'Basic $COPILOT_MCP_JIRA_CLOUD_BASIC_AUTH'
+    tools:
+      - 'getAccessibleAtlassianResources'
+      - 'getJiraIssue'
+      - 'searchJiraIssuesUsingJql'
+      - 'addOrEditJiraIssueComment'
+      - 'editJiraIssue'
+      - 'discover'
+      - 'executeRead'
+      - 'executeWrite'
+  jira:
+    type: 'local'
+    command: 'mcp-server-jira'
+    args: []
+    env:
+      JIRA_URL: '$COPILOT_MCP_JIRA_DC_URL'
+      JIRA_PAT: '$COPILOT_MCP_JIRA_DC_PAT'
+      JIRA_AUTH_TYPE: 'bearer'
+    tools:
+      - 'jira_get_issue'
+      - 'jira_search_issues'
+      - 'jira_list_attachments'
+      - 'jira_download_attachment'
+      - 'jira_add_attachment'
+      - 'jira_add_comment'
+      - 'jira_update_issue'
+      - 'jira_get_transitions'
+      - 'jira_transition_issue'
 model: 'Claude Sonnet 5'
 ---
 
@@ -80,6 +125,15 @@ Input source rules:
 6. If JIRA story number is not provided, still generate the markdown plan artifact and mark JIRA status as Not provided.
 
 If any input is missing or ambiguous, stop and ask.
+
+## Local MCP Server Connection
+
+1. JIRA read/write actions in this agent must use the Local MCP Server, i.e. the `jira` tool family (`mcp__jira__*` / `jira/*`), not the `jira-cloud` remote Atlassian MCP tools.
+2. Before attempting an attachment, confirm the Local MCP Server is reachable using `jira_get_issue` (or `mcp__jira__jira_get_issue`) against the provided JIRA story number.
+3. If the Local MCP Server is unreachable or the issue cannot be found:
+   - Do not stop plan generation.
+   - Mark JIRA status as Local MCP Server unavailable in the `JIRA Story Attachment` section.
+4. If the Local MCP Server is reachable, proceed to attach the generated plan document per the `Plan Artifact Rule` and the `JIRA Story Attachment` output section.
 
 ## Planning Sources
 
@@ -124,7 +178,8 @@ Action: restore the missing files and re-run this plan-only agent.
 3. Use `NO-JIRA` if JIRA story number is not provided.
 4. If the deterministic file already exists, overwrite that same file.
 5. Never create any other file.
-6. If target directory is missing, stop with:
+6. If a JIRA story number was provided, after the markdown file is written, connect to the Local MCP Server and call the local `jira_add_attachment` (or `mcp__jira__jira_add_attachment`) tool to attach the generated markdown file to that JIRA story number.
+7. If target directory is missing, stop with:
 
 ```
 STOP: Plan artifact directory is missing.
@@ -166,13 +221,15 @@ Emit exactly these sections in order.
 
 6. `JIRA Story Attachment`
    - if JIRA story number is provided:
-     - include a concise plan summary formatted for the provided JIRA story number
+     - connect to the Local MCP Server (the `jira` tool family) and attach the generated plan markdown file to the provided JIRA story number using `jira_add_attachment` (or `mcp__jira__jira_add_attachment`)
      - include the JIRA story number explicitly in the section header
-     - include attachment instructions that reference the generated plan markdown file
+     - include a concise plan summary formatted for the provided JIRA story number
+     - report the attachment outcome explicitly: Attached / Failed / Local MCP Server unavailable
      - end with a short action-ready summary suitable for pasting into the story
    - if JIRA story number is not provided:
      - output JIRA status as Not provided
      - explicitly state that the plan markdown file was still generated
+     - do not attempt any Local MCP Server connection
 
 7. `Developer Review Gate`
    - explain that the developer must review the plan
@@ -182,6 +239,7 @@ Emit exactly these sections in order.
 8. `Definition of Done`
    - plan produced
    - one markdown plan artifact written to IntegrationAPITool/artifacts/temp_generated_class
+   - plan document attached to the provided JIRA story via the Local MCP Server, or JIRA status explicitly reported as Not provided / Local MCP Server unavailable
    - no code generated
    - no PR created
    - no repository source-code files modified
