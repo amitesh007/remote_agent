@@ -88,6 +88,36 @@ mcp-servers:
       - 'jira_get_transitions'
       - 'jira_transition_issue'
 model: 'Claude Sonnet 5'
+hooks:
+  SessionStart:
+    - type: command
+      command: |
+        is_ubuntu=false
+        if [ -f /etc/os-release ]; then
+          . /etc/os-release
+          if [ "$ID" = "ubuntu" ]; then
+            is_ubuntu=true
+          fi
+        fi
+        if [ "$is_ubuntu" != "true" ]; then
+          echo "WARNING: this SessionStart hook only provisions mcp-server-jira on Ubuntu Linux; detected OS is not Ubuntu, skipping install" >&2
+        elif ! command -v mcp-server-jira >/dev/null 2>&1; then
+          echo "mcp-server-jira not found on PATH; installing bundled package into this session's runtime..." >&2
+          npm install -g ./liqweb-mcp-server-jira-1.4.0.tgz >&2 || echo "WARNING: failed to install mcp-server-jira; Local MCP Server (jira) will be unavailable" >&2
+        fi
+        if [ -z "$COPILOT_MCP_JIRA_DC_URL" ] || [ -z "$COPILOT_MCP_JIRA_DC_PAT" ]; then
+          echo "WARNING: COPILOT_MCP_JIRA_DC_URL or COPILOT_MCP_JIRA_DC_PAT is not set; Local MCP Server (jira) will be unavailable" >&2
+        fi
+      windows: |
+        if (-not (Get-Command mcp-server-jira -ErrorAction SilentlyContinue)) {
+          Write-Output "mcp-server-jira not found on PATH; installing bundled package into this session's runtime..."
+          npm install -g ./liqweb-mcp-server-jira-1.4.0.tgz
+          if ($LASTEXITCODE -ne 0) { Write-Warning "failed to install mcp-server-jira; Local MCP Server (jira) will be unavailable" }
+        }
+        if (-not $env:COPILOT_MCP_JIRA_DC_URL -or -not $env:COPILOT_MCP_JIRA_DC_PAT) {
+          Write-Warning "COPILOT_MCP_JIRA_DC_URL or COPILOT_MCP_JIRA_DC_PAT is not set; Local MCP Server (jira) will be unavailable"
+        }
+      timeout: 120
 ---
 
 # Lending API Plan-Only Agent
@@ -129,11 +159,12 @@ If any input is missing or ambiguous, stop and ask.
 ## Local MCP Server Connection
 
 1. JIRA read/write actions in this agent must use the Local MCP Server, i.e. the `jira` tool family (`mcp__jira__*` / `jira/*`), not the `jira-cloud` remote Atlassian MCP tools.
-2. Before attempting an attachment, confirm the Local MCP Server is reachable using `jira_get_issue` (or `mcp__jira__jira_get_issue`) against the provided JIRA story number.
-3. If the Local MCP Server is unreachable or the issue cannot be found:
+2. This agent declares a `SessionStart` hook that provisions the local `mcp-server-jira` binary directly in the same runtime environment used to run this agent (not a separate GitHub Actions runner). On POSIX runtimes, the hook first checks `/etc/os-release` to confirm the OS is Ubuntu Linux; if it is not Ubuntu, the hook skips the install and logs a warning instead of running `npm install -g`. When the OS is Ubuntu, the hook installs the bundled `liqweb-mcp-server-jira-1.4.0.tgz` package via `npm install -g` only when `mcp-server-jira` is not already on `PATH`, and it checks that `COPILOT_MCP_JIRA_DC_URL` / `COPILOT_MCP_JIRA_DC_PAT` are present, logging a warning (never the credential values) if either step fails.
+3. Before attempting an attachment, confirm the Local MCP Server is reachable using `jira_get_issue` (or `mcp__jira__jira_get_issue`) against the provided JIRA story number.
+4. If the Local MCP Server is unreachable, the runtime OS is not Ubuntu Linux, the `mcp-server-jira` binary failed to install, required credentials are missing, or the issue cannot be found:
    - Do not stop plan generation.
    - Mark JIRA status as Local MCP Server unavailable in the `JIRA Story Attachment` section.
-4. If the Local MCP Server is reachable, proceed to attach the generated plan document per the `Plan Artifact Rule` and the `JIRA Story Attachment` output section.
+5. If the Local MCP Server is reachable, proceed to attach the generated plan document per the `Plan Artifact Rule` and the `JIRA Story Attachment` output section.
 
 ## Planning Sources
 
