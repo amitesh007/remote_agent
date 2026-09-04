@@ -1,0 +1,57 @@
+{
+  "header": {
+    "appId": "INTR",
+    "isB2B": true,
+    "isAdmin": false
+  },
+  "attributes": {
+    "liqBusinessObjects": {
+      "liqBusinessObject": [
+        {
+          "name": "LiqAPIAlternateIdentifiersQueryIntegration",
+          "className": "LiqAPIAlternateIdentifiersQueryIntegration",
+          "group": [
+            {
+              "name": "heading",
+              "item": [
+                {
+                  "attribute": "objectIdentifier",
+                  "valueList": {
+                    "liqBusinessObject": [
+                      {
+                        "name": "ObjectIdentifier",
+                        "className": "ObjectIdentifier",
+                        "group": [
+                          {
+                            "item": [
+                              {
+                                "attribute": "objectType",
+                                "valueType": "String",
+                                "value": "OST"
+                              },
+                              {
+                                "attribute": "identfierType",
+                                "valueType": "String",
+                                "value": "id"
+                              },
+                              {
+                                "attribute": "identifierValue",
+                                "valueType": "String",
+                                "value": "ENTITY_ID"
+                              }
+                            ]
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  "valueType": "List"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
