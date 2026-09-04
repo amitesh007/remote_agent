@@ -1,0 +1,322 @@
+name: lending-api-plan-only
+
+on:
+  # Manual trigger — used when there is no JIRA event available.
+  workflow_dispatch:
+    inputs:
+      excel_path:
+        description: Absolute path to the Excel requirement file
+        required: true
+        type: string
+      entity_name:
+        description: ENTITY_NAME value for the plan request
+        required: true
+        type: string
+      jira_story_number:
+        description: JIRA story key such as LIQSC-63867
+        required: true
+        type: string
+  # JIRA-driven trigger — dispatched by a JIRA automation/webhook that calls
+  # the GitHub "Create a repository dispatch event" API with event_type
+  # "jira-plan-request" and a client_payload carrying the three inputs below.
+  repository_dispatch:
+    types:
+      - jira-plan-request
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  invoke-plan-agent:
+    name: Create JIRA-driven issue to invoke the Lending API Plan Only agent
+    runs-on: ubuntu-latest
+    outputs:
+      excel_path: ${{ steps.resolve.outputs.excel_path }}
+      entity_name: ${{ steps.resolve.outputs.entity_name }}
+      jira_story_number: ${{ steps.resolve.outputs.jira_story_number }}
+      issue_number: ${{ steps.create_issue.outputs.issue_number }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Resolve excel_path / entity_name / jira_story_number from either the
+      # workflow_dispatch inputs or the repository_dispatch client_payload
+      # (the shape JIRA automation sends).
+      - name: Resolve inputs from JIRA payload or manual dispatch
+        id: resolve
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+
+          const eventName = process.env.EVENT_NAME || '';
+          const rawPayload = process.env.DISPATCH_PAYLOAD || '';
+          const manualExcel = process.env.MANUAL_EXCEL_PATH || '';
+          const manualEntity = process.env.MANUAL_ENTITY_NAME || '';
+          const manualJira = process.env.MANUAL_JIRA_STORY || '';
+
+          let payload = {};
+          if (rawPayload) {
+            try {
+              payload = JSON.parse(rawPayload);
+            } catch (error) {
+              payload = {};
+            }
+          }
+
+          let excelPath = '';
+          let entityName = '';
+          let jiraStory = '';
+
+          if (eventName === 'workflow_dispatch') {
+            excelPath = manualExcel;
+            entityName = manualEntity;
+            jiraStory = manualJira;
+          } else {
+            excelPath = payload.excel_path || payload.excelPath || '';
+            entityName = payload.entity_name || payload.entityName || '';
+            jiraStory = payload.jira_story_number || payload.jiraStoryNumber
+              || payload.jira_story || payload.jiraStory || '';
+          }
+
+          if (!excelPath || !entityName || !jiraStory) {
+            console.error('Missing required inputs: excel_path, entity_name, jira_story_number');
+            process.exit(1);
+          }
+
+          const out = process.env.GITHUB_OUTPUT;
+          fs.appendFileSync(out, `excel_path=${excelPath}\n`);
+          fs.appendFileSync(out, `entity_name=${entityName}\n`);
+          fs.appendFileSync(out, `jira_story_number=${jiraStory}\n`);
+
+          console.log(`Resolved excel_path=${excelPath}`);
+          console.log(`Resolved entity_name=${entityName}`);
+          console.log(`Resolved jira_story_number=${jiraStory}`);
+          NODE
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_PAYLOAD: ${{ toJson(github.event.client_payload) }}
+          MANUAL_EXCEL_PATH: ${{ github.event.inputs.excel_path }}
+          MANUAL_ENTITY_NAME: ${{ github.event.inputs.entity_name }}
+          MANUAL_JIRA_STORY: ${{ github.event.inputs.jira_story_number }}
+
+      - name: Validate Excel file input
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const excelPath = process.env.EXCEL_PATH;
+
+          if (!excelPath || !fs.existsSync(excelPath)) {
+            console.error(`Excel file not found at: ${excelPath}`);
+            process.exit(1);
+          }
+
+          const ext = excelPath.split('.').pop().toLowerCase();
+          if (!['xls', 'xlsx'].includes(ext)) {
+            console.error(`Unsupported Excel extension: ${ext}`);
+            process.exit(1);
+          }
+
+          console.log(`Validated Excel file: ${excelPath}`);
+          NODE
+        env:
+          EXCEL_PATH: ${{ steps.resolve.outputs.excel_path }}
+
+      # Create the JIRA-style GitHub issue that instructs the remote Copilot
+      # agent to invoke the "Lending API Plan Only" agent with the resolved
+      # inputs, then assign it to copilot-swe-agent[bot] using COPILOT_PAT.
+      - name: Create issue and assign to copilot-swe-agent[bot]
+        id: create_issue
+        run: |
+          node <<'NODE'
+          const { execSync } = require('child_process');
+          const fs = require('fs');
+
+          const repo = process.env.GITHUB_REPOSITORY;
+          const excelPath = process.env.EXCEL_PATH;
+          const entityName = process.env.ENTITY_NAME;
+          const jiraStory = process.env.JIRA_STORY;
+          const copilotPat = process.env.COPILOT_PAT || '';
+          const githubToken = process.env.GITHUB_TOKEN || '';
+
+          if (!repo || !excelPath || !entityName || !jiraStory) {
+            console.error('Missing required values to create the plan issue.');
+            process.exit(1);
+          }
+
+          const issueTitle = `Lending API Plan Only: ${entityName} (${jiraStory})`;
+          const issueBody = [
+            '@lending-api-plan-only',
+            '',
+            `Invoke the "Lending API Plan Only" agent for entity '${entityName}'.`,
+            '',
+            'Required inputs:',
+            `- entityName: ${entityName}`,
+            `- excelPath: ${excelPath}`,
+            `- jiraStoryNumber: ${jiraStory}`,
+            '',
+            'Instructions:',
+            '- Generate the plan markdown artifact under IntegrationAPITool/artifacts/temp_generated_class',
+            '- Use the naming pattern lending-api-plan-<ENTITY_NAME>-<JIRA_OR_NO-JIRA>.md',
+            '- Do not modify repository source code',
+            '- Do not run compile or test commands',
+            '- Do not create a pull request',
+            '- Stop once the plan markdown artifact has been written'
+          ].join('\n');
+
+          function gh(args, token) {
+            return execSync(`gh ${args.join(' ')}`, {
+              stdio: ['ignore', 'pipe', 'pipe'],
+              env: { ...process.env, GH_TOKEN: token }
+            }).toString().trim();
+          }
+
+          const createToken = copilotPat || githubToken;
+          let issueUrl = '';
+          try {
+            issueUrl = gh([
+              'issue', 'create',
+              '--repo', repo,
+              '--title', JSON.stringify(issueTitle),
+              '--body', JSON.stringify(issueBody),
+              '--label', 'plan-generated'
+            ], createToken);
+          } catch (error) {
+            console.error((error.stderr && error.stderr.toString()) || error.message);
+            process.exit(1);
+          }
+
+          const issueNumber = issueUrl.split('/').pop();
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `issue_number=${issueNumber}\n`);
+          console.log(`Created issue #${issueNumber}: ${issueUrl}`);
+
+          if (copilotPat) {
+            try {
+              gh([
+                'issue', 'edit', issueNumber,
+                '--repo', repo,
+                '--add-assignee', 'copilot-swe-agent[bot]'
+              ], copilotPat);
+              console.log(`Assigned issue #${issueNumber} to copilot-swe-agent[bot]`);
+            } catch (error) {
+              console.warn('Assignment to copilot-swe-agent[bot] failed; assign manually if needed.');
+              console.warn((error.stderr && error.stderr.toString()) || error.message);
+            }
+          } else {
+            console.warn('COPILOT_PAT not set; issue created but not assigned to copilot-swe-agent[bot].');
+          }
+          NODE
+        env:
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          COPILOT_PAT: ${{ secrets.COPILOT_PAT }}
+          EXCEL_PATH: ${{ steps.resolve.outputs.excel_path }}
+          ENTITY_NAME: ${{ steps.resolve.outputs.entity_name }}
+          JIRA_STORY: ${{ steps.resolve.outputs.jira_story_number }}
+
+  attach-plan-to-jira:
+    name: Wait for generated plan document and attach it to the JIRA story
+    needs: invoke-plan-agent
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Poll for the deterministic plan markdown file produced by the
+      # Lending API Plan Only agent, then upload it as an attachment on the
+      # JIRA story via the JIRA REST API.
+      - name: Detect plan artifact and attach to JIRA
+        run: |
+          node <<'NODE'
+          const fs = require('fs');
+          const path = require('path');
+          const { execSync } = require('child_process');
+
+          const entityName = process.env.ENTITY_NAME || '';
+          const jiraStory = process.env.JIRA_STORY || '';
+          const jiraBaseUrl = process.env.JIRA_BASE_URL || '';
+          const jiraUser = process.env.JIRA_USER_EMAIL || '';
+          const jiraToken = process.env.JIRA_API_TOKEN || '';
+
+          if (!entityName || !jiraStory) {
+            console.error('Missing entity name or JIRA story number.');
+            process.exit(1);
+          }
+
+          const artifactDir = path.join('IntegrationAPITool', 'artifacts', 'temp_generated_class');
+          const expectedFile = `lending-api-plan-${entityName}-${jiraStory}.md`;
+          const expectedPath = path.join(artifactDir, expectedFile);
+
+          const sleepMs = (ms) => {
+            const end = Date.now() + ms;
+            while (Date.now() < end) { /* busy wait between polls */ }
+          };
+
+          let foundPath = '';
+          const maxAttempts = 60; // 60 * 30s = 30 minutes
+          for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+            if (fs.existsSync(expectedPath)) {
+              foundPath = expectedPath;
+              break;
+            }
+            if (fs.existsSync(artifactDir)) {
+              const match = fs.readdirSync(artifactDir)
+                .find((f) => f.startsWith(`lending-api-plan-${entityName}-`) && f.endsWith('.md'));
+              if (match) {
+                foundPath = path.join(artifactDir, match);
+                break;
+              }
+            }
+            console.log(`Waiting for plan artifact (attempt ${attempt}/${maxAttempts}): ${expectedPath}`);
+            sleepMs(30000);
+          }
+
+          if (!foundPath) {
+            console.error(`Plan artifact was not created within the timeout: ${expectedPath}`);
+            process.exit(1);
+          }
+
+          console.log(`Detected plan artifact: ${foundPath}`);
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `plan_path=${foundPath}\n`);
+
+          if (!jiraBaseUrl || !jiraUser || !jiraToken) {
+            console.log('JIRA secrets are not configured; skipping attachment upload.');
+            process.exit(0);
+          }
+
+          try {
+            const cmd = [
+              'curl', '-sS', '-f',
+              '-u', `${jiraUser}:${jiraToken}`,
+              '-X', 'POST',
+              '-H', 'Accept: application/json',
+              '-H', 'X-Atlassian-Token: no-check',
+              '-F', `file=@${foundPath}`,
+              `${jiraBaseUrl}/rest/api/3/issue/${jiraStory}/attachments`
+            ].join(' ');
+            const result = execSync(cmd, { stdio: ['ignore', 'pipe', 'pipe'] });
+            console.log(`Attachment uploaded to JIRA story ${jiraStory}`);
+            console.log(result.toString());
+          } catch (error) {
+            const stdout = error.stdout ? error.stdout.toString() : '';
+            const stderr = error.stderr ? error.stderr.toString() : '';
+            console.error(stderr || stdout || 'JIRA attachment upload failed.');
+            process.exit(1);
+          }
+          NODE
+        env:
+          ENTITY_NAME: ${{ needs.invoke-plan-agent.outputs.entity_name }}
+          JIRA_STORY: ${{ needs.invoke-plan-agent.outputs.jira_story_number }}
+          JIRA_BASE_URL: ${{ secrets.JIRA_BASE_URL }}
+          JIRA_USER_EMAIL: ${{ secrets.JIRA_USER_EMAIL }}
+          JIRA_API_TOKEN: ${{ secrets.JIRA_API_TOKEN }}
